@@ -3,6 +3,7 @@ import mimetypes
 import os
 import subprocess
 import sys
+from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -39,6 +40,51 @@ def read_json_file(file_name):
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def file_updated_at(file_name):
+    path = ROOT / file_name
+    if not path.exists():
+        return None
+    return datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds")
+
+
+def count_records(data):
+    if data is None:
+        return 0
+    if isinstance(data, list):
+        return len(data)
+    if isinstance(data, dict):
+        if "subjects" in data:
+            return len(data["subjects"])
+        if "days" in data:
+            return len(data["days"])
+        if "universityResult" in data:
+            assessments = data.get("assessmentResults", {})
+            assessment_count = sum(len(section.get("items", [])) for section in assessments.values())
+            return assessment_count + len(data.get("universityResult", []))
+    return 1
+
+
+def build_status():
+    cookie, cookie_source = load_cookie()
+    files = {}
+
+    for endpoint, file_name in API_FILES.items():
+        data = read_json_file(file_name)
+        files[file_name] = {
+            "endpoint": endpoint,
+            "exists": data is not None,
+            "count": count_records(data),
+            "updatedAt": file_updated_at(file_name),
+        }
+
+    return {
+        "ok": True,
+        "hasCookie": bool(cookie),
+        "cookieSource": cookie_source,
+        "files": files,
+    }
 
 
 def load_cookie():
@@ -78,6 +124,10 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
                 "hasCookie": bool(cookie),
                 "cookieSource": cookie_source,
             })
+            return
+
+        if path == "/api/status":
+            self.write_json(build_status())
             return
 
         if path in API_FILES:

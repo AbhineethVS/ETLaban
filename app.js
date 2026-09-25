@@ -4,6 +4,7 @@ const DATA_SOURCES = {
   attendanceMonth: ["/api/attendance/month", "attendance-month.json"],
   attendanceDetails: ["/api/attendance/day-details", "attendance-day-details.json"],
   results: ["/api/results", "results.json"],
+  status: ["/api/status"],
 };
 
 const app = document.querySelector("#app");
@@ -16,6 +17,7 @@ const navItems = [...document.querySelectorAll(".nav-item")];
 const state = {
   view: "dashboard",
   data: {},
+  syncMessage: null,
 };
 
 function escapeHtml(value) {
@@ -106,6 +108,7 @@ function render() {
     results: "Results",
     materials: "Study Materials",
     resources: "Resources",
+    settings: "Settings",
   }[state.view];
 
   viewTitle.textContent = title;
@@ -116,6 +119,7 @@ function render() {
     results: renderResults,
     materials: renderMaterials,
     resources: renderResources,
+    settings: renderSettings,
   }[state.view];
 
   app.innerHTML = renderer();
@@ -411,6 +415,67 @@ function renderResources() {
   `;
 }
 
+function renderSettings() {
+  const status = state.data.status;
+  const files = status?.files ? Object.entries(status.files) : [];
+
+  return `
+    <div class="grid cols-2">
+      <section class="card">
+        <h2>Sync Status</h2>
+        <div class="list">
+          <div class="list-item">
+            <div>
+              <strong>ETLab Cookie</strong>
+              <span class="muted">${status?.cookieSource ? `Loaded from ${status.cookieSource}` : "Not detected"}</span>
+            </div>
+            <span class="pill ${status?.hasCookie ? "good" : "bad"}">${status?.hasCookie ? "Ready" : "Missing"}</span>
+          </div>
+          <div class="list-item">
+            <div>
+              <strong>Last UI Refresh</strong>
+              <span class="muted">${escapeHtml(syncStatus.textContent || "-")}</span>
+            </div>
+          </div>
+          ${
+            state.syncMessage
+              ? `<div class="list-item">
+                  <div>
+                    <strong>Last Sync</strong>
+                    <span class="muted">${escapeHtml(state.syncMessage)}</span>
+                  </div>
+                </div>`
+              : ""
+          }
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Data Files</h2>
+        <div class="list">
+          ${
+            files.length
+              ? files
+                  .map(
+                    ([fileName, file]) => `
+                      <div class="list-item">
+                        <div>
+                          <strong>${escapeHtml(fileName)}</strong>
+                          <span class="muted">${escapeHtml(file.endpoint)} · ${escapeHtml(file.updatedAt || "not generated")}</span>
+                        </div>
+                        <span class="pill ${file.exists ? "good" : "bad"}">${file.count}</span>
+                      </div>
+                    `,
+                  )
+                  .join("")
+              : `<p class="muted">Backend status is available only when running <code>python backend_server.py</code>.</p>`
+          }
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function emptyState() {
   return document.querySelector("#empty-state-template").innerHTML;
 }
@@ -470,10 +535,16 @@ syncButton.addEventListener("click", async () => {
     if (!response.ok) {
       throw new Error(result.error || "Sync failed");
     }
+    state.syncMessage = `Success at ${new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`;
     await loadData();
     render();
   } catch (error) {
-    syncStatus.textContent = error.message || "Sync failed";
+    state.syncMessage = error.message || "Sync failed";
+    syncStatus.textContent = state.syncMessage;
+    render();
   } finally {
     syncButton.disabled = false;
   }
