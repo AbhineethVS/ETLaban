@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Better ETLab">
+  <rect width="128" height="128" rx="30" fill="#101828"/>
+  <path d="M31 74c0-24 15-42 36-42 14 0 25 7 31 18l-17 8c-3-6-8-10-15-10-10 0-18 9-18 24s8 24 19 24c8 0 14-4 17-12h-22V69h42v7c0 23-15 37-37 37-22 0-36-16-36-39Z" fill="#fff"/>
+  <path d="M28 25h72v12H28z" fill="#60a5fa"/>
+</svg>

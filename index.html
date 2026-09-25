@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101828" />
+    <title>Better ETLab</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <img src="icon.svg" alt="" />
+          <div>
+            <strong>Better ETLab</strong>
+            <span>Student dashboard</span>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Main navigation">
+          <button class="nav-item active" data-view="dashboard">Dashboard</button>
+          <button class="nav-item" data-view="attendance">Attendance</button>
+          <button class="nav-item" data-view="results">Results</button>
+          <button class="nav-item" data-view="materials">Materials</button>
+          <button class="nav-item" data-view="resources">Resources</button>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">College of Engineering Trivandrum</p>
+            <h1 id="view-title">Dashboard</h1>
+          </div>
+          <div class="actions">
+            <span id="sync-status" class="sync-status">Loading data...</span>
+            <button id="refresh-button" class="button secondary">Refresh</button>
+          </div>
+        </header>
+
+        <section id="app" class="content" aria-live="polite"></section>
+      </main>
+    </div>
+
+    <template id="empty-state-template">
+      <div class="empty-state">
+        <h2>No data yet</h2>
+        <p>Run the fetch script to generate JSON files, then refresh this app.</p>
+      </div>
+    </template>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

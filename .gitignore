@@ -1,0 +1,5 @@
+.env
+*.html
+!index.html
+*.json
+__pycache__/
