@@ -87,6 +87,17 @@ def build_status():
     }
 
 
+def save_cookie(cookie):
+    cookie = cookie.strip()
+    if cookie.lower().startswith("cookie:"):
+        cookie = cookie.split(":", 1)[1].strip()
+
+    if not cookie or "=" not in cookie:
+        raise ValueError("Cookie value is invalid")
+
+    (ROOT / ".env").write_text(f"ETLAB_COOKIE={cookie}\n", encoding="utf-8")
+
+
 def load_cookie():
     env_cookie = os.environ.get("ETLAB_COOKIE")
     if env_cookie:
@@ -142,6 +153,10 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
+        if parsed.path == "/api/cookie":
+            self.handle_save_cookie()
+            return
+
         if parsed.path != "/api/sync":
             self.write_json({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
             return
@@ -184,6 +199,19 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
             "stdout": result.stdout,
             "stderr": result.stderr,
         })
+
+    def handle_save_cookie(self):
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length).decode("utf-8") if content_length else "{}"
+
+        try:
+            body = json.loads(raw_body)
+            save_cookie(str(body.get("cookie", "")))
+        except (json.JSONDecodeError, ValueError) as error:
+            self.write_json({"error": str(error)}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        self.write_json(build_status())
 
     def serve_static(self, path):
         if path not in STATIC_FILES:

@@ -287,6 +287,29 @@ h3 {
   background: #ffffff;
 }
 
+.textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: #ffffff;
+  color: var(--text);
+  resize: vertical;
+}
+
+.log-output {
+  overflow: auto;
+  max-height: 360px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+  background: #0b1220;
+  color: #d1e9ff;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
 .subject-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

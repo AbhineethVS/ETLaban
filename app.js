@@ -18,6 +18,8 @@ const state = {
   view: "dashboard",
   data: {},
   syncMessage: null,
+  syncLog: null,
+  settingsMessage: null,
 };
 
 function escapeHtml(value) {
@@ -451,6 +453,16 @@ function renderSettings() {
       </section>
 
       <section class="card">
+        <h2>Cookie Manager</h2>
+        <p class="muted">Paste the full ETLab <code>Cookie:</code> header value. It is saved only to your local ignored <code>.env</code> file.</p>
+        <form id="cookie-form" class="list">
+          <textarea id="cookie-input" class="textarea" name="cookie" rows="5" placeholder="YII_CSRF_TOKEN=...; style=theme-grey; CETSESSIONID=..." required></textarea>
+          <button class="button" type="submit">Save Cookie</button>
+          ${state.settingsMessage ? `<p class="muted">${escapeHtml(state.settingsMessage)}</p>` : ""}
+        </form>
+      </section>
+
+      <section class="card">
         <h2>Data Files</h2>
         <div class="list">
           ${
@@ -471,6 +483,15 @@ function renderSettings() {
               : `<p class="muted">Backend status is available only when running <code>python backend_server.py</code>.</p>`
           }
         </div>
+      </section>
+
+      <section class="card">
+        <h2>Last Sync Log</h2>
+        ${
+          state.syncLog
+            ? `<pre class="log-output">${escapeHtml(state.syncLog)}</pre>`
+            : `<p class="muted">No sync log for this browser session yet.</p>`
+        }
       </section>
     </div>
   `;
@@ -514,6 +535,36 @@ function attachViewHandlers() {
       render();
     });
   });
+
+  const cookieForm = document.querySelector("#cookie-form");
+  if (cookieForm) {
+    cookieForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(cookieForm);
+      state.settingsMessage = "Saving cookie...";
+      render();
+
+      try {
+        const response = await fetch("/api/cookie", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ cookie: formData.get("cookie") }),
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to save cookie");
+        }
+
+        state.settingsMessage = "Cookie saved. Sync is ready.";
+        await loadData();
+      } catch (error) {
+        state.settingsMessage = error.message || "Failed to save cookie";
+      }
+      render();
+    });
+  }
 }
 
 navItems.forEach((item) => {
@@ -533,8 +584,10 @@ syncButton.addEventListener("click", async () => {
     const response = await fetch("/api/sync", { method: "POST" });
     const result = await response.json();
     if (!response.ok) {
+      state.syncLog = [result.error, result.stdout, result.stderr].filter(Boolean).join("\n\n");
       throw new Error(result.error || "Sync failed");
     }
+    state.syncLog = [result.stdout, result.stderr].filter(Boolean).join("\n\n").trim();
     state.syncMessage = `Success at ${new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
