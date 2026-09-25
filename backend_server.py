@@ -1,0 +1,149 @@
+import json
+import mimetypes
+import os
+import subprocess
+import sys
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import unquote, urlparse
+
+
+ROOT = Path(__file__).resolve().parent
+HOST = "127.0.0.1"
+PORT = int(os.environ.get("PORT", "8000"))
+
+API_FILES = {
+    "/api/materials": "materials.json",
+    "/api/attendance/subject": "attendance-subject.json",
+    "/api/attendance/month": "attendance-month.json",
+    "/api/attendance/day-details": "attendance-day-details.json",
+    "/api/attendance/with-duty-leave": "attendance-with-duty-leave.json",
+    "/api/attendance/credit": "credit-based-attendance.json",
+    "/api/results": "results.json",
+}
+
+STATIC_FILES = {
+    "/": "index.html",
+    "/index.html": "index.html",
+    "/app.js": "app.js",
+    "/styles.css": "styles.css",
+    "/manifest.webmanifest": "manifest.webmanifest",
+    "/sw.js": "sw.js",
+    "/icon.svg": "icon.svg",
+}
+
+
+def read_json_file(file_name):
+    path = ROOT / file_name
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+class BetterEtlabHandler(BaseHTTPRequestHandler):
+    server_version = "BetterETLab/0.1"
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        if path == "/api/health":
+            self.write_json({
+                "ok": True,
+                "hasCookie": bool(os.environ.get("ETLAB_COOKIE")),
+            })
+            return
+
+        if path in API_FILES:
+            data = read_json_file(API_FILES[path])
+            if data is None:
+                self.write_json({"error": f"{API_FILES[path]} not generated yet"}, status=HTTPStatus.NOT_FOUND)
+                return
+            self.write_json(data)
+            return
+
+        self.serve_static(path)
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        if parsed.path != "/api/sync":
+            self.write_json({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+
+        if not os.environ.get("ETLAB_COOKIE"):
+            self.write_json(
+                {"error": "ETLAB_COOKIE is required before syncing"},
+                status=HTTPStatus.BAD_REQUEST,
+            )
+            return
+
+        try:
+            result = subprocess.run(
+                [sys.executable, "fetch_etlab.py"],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as error:
+            self.write_json(
+                {
+                    "error": "Sync failed",
+                    "stdout": error.stdout,
+                    "stderr": error.stderr,
+                },
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+            return
+
+        self.write_json({
+            "ok": True,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        })
+
+    def serve_static(self, path):
+        if path not in STATIC_FILES:
+            self.write_json({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+
+        file_path = ROOT / STATIC_FILES[path]
+        if not file_path.exists():
+            self.write_json({"error": "File not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+
+        content_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+        if file_path.suffix == ".webmanifest":
+            content_type = "application/manifest+json"
+
+        content = file_path.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(content)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(content)
+
+    def write_json(self, data, status=HTTPStatus.OK):
+        content = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(content)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(content)
+
+    def log_message(self, format, *args):
+        print(f"{self.address_string()} - {unquote(format % args)}")
+
+
+def main():
+    server = ThreadingHTTPServer((HOST, PORT), BetterEtlabHandler)
+    print(f"Better ETLab backend running at http://{HOST}:{PORT}")
+    print("Press Ctrl+C to stop.")
+    server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

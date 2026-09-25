@@ -1,14 +1,15 @@
-const DATA_FILES = {
-  materials: "materials.json",
-  attendanceSubject: "attendance-subject.json",
-  attendanceMonth: "attendance-month.json",
-  attendanceDetails: "attendance-day-details.json",
-  results: "results.json",
+const DATA_SOURCES = {
+  materials: ["/api/materials", "materials.json"],
+  attendanceSubject: ["/api/attendance/subject", "attendance-subject.json"],
+  attendanceMonth: ["/api/attendance/month", "attendance-month.json"],
+  attendanceDetails: ["/api/attendance/day-details", "attendance-day-details.json"],
+  results: ["/api/results", "results.json"],
 };
 
 const app = document.querySelector("#app");
 const viewTitle = document.querySelector("#view-title");
 const syncStatus = document.querySelector("#sync-status");
+const syncButton = document.querySelector("#sync-button");
 const refreshButton = document.querySelector("#refresh-button");
 const navItems = [...document.querySelectorAll(".nav-item")];
 
@@ -34,13 +35,27 @@ async function fetchJson(path) {
   return response.json();
 }
 
+async function fetchJsonFromSources(paths) {
+  let lastError;
+
+  for (const path of paths) {
+    try {
+      return await fetchJson(path);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
+
 async function loadData() {
   syncStatus.textContent = "Loading data...";
 
   const entries = await Promise.all(
-    Object.entries(DATA_FILES).map(async ([key, path]) => {
+    Object.entries(DATA_SOURCES).map(async ([key, paths]) => {
       try {
-        return [key, await fetchJson(path)];
+        return [key, await fetchJsonFromSources(paths)];
       } catch {
         return [key, null];
       }
@@ -443,6 +458,25 @@ navItems.forEach((item) => {
 refreshButton.addEventListener("click", async () => {
   await loadData();
   render();
+});
+
+syncButton.addEventListener("click", async () => {
+  syncButton.disabled = true;
+  syncStatus.textContent = "Syncing ETLab...";
+
+  try {
+    const response = await fetch("/api/sync", { method: "POST" });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || "Sync failed");
+    }
+    await loadData();
+    render();
+  } catch (error) {
+    syncStatus.textContent = error.message || "Sync failed";
+  } finally {
+    syncButton.disabled = false;
+  }
 });
 
 if ("serviceWorker" in navigator) {
