@@ -41,6 +41,29 @@ def read_json_file(file_name):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def load_cookie():
+    env_cookie = os.environ.get("ETLAB_COOKIE")
+    if env_cookie:
+        return env_cookie, "environment"
+
+    env_path = ROOT / ".env"
+    if not env_path.exists():
+        return None, None
+
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        if key.strip() != "ETLAB_COOKIE":
+            continue
+
+        return value.strip().strip("'").strip('"'), ".env"
+
+    return None, None
+
+
 class BetterEtlabHandler(BaseHTTPRequestHandler):
     server_version = "BetterETLab/0.1"
 
@@ -49,9 +72,11 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
         path = parsed.path
 
         if path == "/api/health":
+            cookie, cookie_source = load_cookie()
             self.write_json({
                 "ok": True,
-                "hasCookie": bool(os.environ.get("ETLAB_COOKIE")),
+                "hasCookie": bool(cookie),
+                "cookieSource": cookie_source,
             })
             return
 
@@ -71,7 +96,8 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
             self.write_json({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
             return
 
-        if not os.environ.get("ETLAB_COOKIE"):
+        cookie, cookie_source = load_cookie()
+        if not cookie:
             self.write_json(
                 {"error": "ETLAB_COOKIE is required before syncing"},
                 status=HTTPStatus.BAD_REQUEST,
@@ -79,9 +105,14 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
             return
 
         try:
+            child_env = {
+                **os.environ,
+                "ETLAB_COOKIE": cookie,
+            }
             result = subprocess.run(
                 [sys.executable, "fetch_etlab.py"],
                 cwd=ROOT,
+                env=child_env,
                 check=True,
                 capture_output=True,
                 text=True,
@@ -99,6 +130,7 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
 
         self.write_json({
             "ok": True,
+            "cookieSource": cookie_source,
             "stdout": result.stdout,
             "stderr": result.stderr,
         })

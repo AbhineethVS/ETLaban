@@ -54,6 +54,18 @@ export ETLAB_COOKIE='PASTE_COOKIE_HEADER_VALUE_HERE'
 python fetch_etlab.py
 ```
 
+You can also create a local `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env`:
+
+```text
+ETLAB_COOKIE='YII_CSRF_TOKEN=...; style=theme-grey; CETSESSIONID=...'
+```
+
 When running `backend_server.py`, the PWA's **Sync ETLab** button calls:
 
 ```text
