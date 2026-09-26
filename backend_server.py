@@ -41,6 +41,8 @@ STATIC_FILES = {
     "/manifest.webmanifest": "manifest.webmanifest",
     "/sw.js": "sw.js",
     "/icon.svg": "icon.svg",
+    "/icon-192.png": "icon-192.png",
+    "/icon-512.png": "icon-512.png",
 }
 
 

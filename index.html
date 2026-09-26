@@ -4,9 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#101828" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Better ETLab" />
     <title>Better ETLab</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -38,10 +43,22 @@
           </div>
           <div class="actions">
             <span id="sync-status" class="sync-status">Loading data...</span>
+            <button id="install-button" class="button secondary" hidden>Install app</button>
             <button id="sync-button" class="button">Sync ETLab</button>
             <button id="refresh-button" class="button secondary">Refresh</button>
           </div>
         </header>
+
+        <section id="install-banner" class="install-banner" hidden>
+          <div>
+            <strong>Install Better ETLab</strong>
+            <p>Add it to your home screen for a faster app-like experience.</p>
+          </div>
+          <div class="install-banner-actions">
+            <button id="install-banner-button" class="button">Install</button>
+            <button id="install-dismiss-button" class="button secondary">Not now</button>
+          </div>
+        </section>
 
         <section id="app" class="content" aria-live="polite"></section>
       </main>

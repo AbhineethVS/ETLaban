@@ -145,6 +145,29 @@ h3 {
   justify-content: flex-end;
 }
 
+.install-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 16px 18px;
+  background: #eff6ff;
+}
+
+.install-banner p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.install-banner-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .sync-status {
   color: var(--muted);
   font-size: 0.9rem;
@@ -443,6 +466,10 @@ h3 {
 
   .actions {
     justify-content: flex-start;
+  }
+
+  .install-banner {
+    display: grid;
   }
 
   .grid.cols-2,

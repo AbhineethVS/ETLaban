@@ -13,6 +13,10 @@ const viewTitle = document.querySelector("#view-title");
 const syncStatus = document.querySelector("#sync-status");
 const syncButton = document.querySelector("#sync-button");
 const refreshButton = document.querySelector("#refresh-button");
+const installButton = document.querySelector("#install-button");
+const installBanner = document.querySelector("#install-banner");
+const installBannerButton = document.querySelector("#install-banner-button");
+const installDismissButton = document.querySelector("#install-dismiss-button");
 const navItems = [...document.querySelectorAll(".nav-item")];
 
 const state = {
@@ -21,6 +25,7 @@ const state = {
   syncMessage: null,
   syncLog: null,
   settingsMessage: null,
+  deferredInstallPrompt: null,
 };
 
 function escapeHtml(value) {
@@ -541,6 +546,15 @@ function renderSettings() {
       </section>
 
       <section class="card">
+        <h2>Install App</h2>
+        <p class="muted">Install Better ETLab like a normal app on your phone or laptop.</p>
+        <div class="toolbar">
+          <button class="button" type="button" id="settings-install-button">Install / Download app</button>
+        </div>
+        <p class="muted">If the popup does not appear, use your browser menu: Install app / Add to Home Screen.</p>
+      </section>
+
+      <section class="card">
         <h2>Advanced: Manual Cookie</h2>
         <p class="muted">Fallback only. Prefer Login above.</p>
         <form id="cookie-form" class="list">
@@ -590,6 +604,13 @@ function attachViewHandlers() {
       render();
     });
   });
+
+  const settingsInstallButton = document.querySelector("#settings-install-button");
+  if (settingsInstallButton) {
+    settingsInstallButton.addEventListener("click", () => {
+      promptInstall();
+    });
+  }
 
   const cookieForm = document.querySelector("#cookie-form");
   if (cookieForm) {
@@ -727,9 +748,76 @@ syncButton.addEventListener("click", async () => {
   }
 });
 
+function isStandaloneApp() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true
+  );
+}
+
+function showInstallUi(visible) {
+  if (isStandaloneApp()) {
+    installButton.hidden = true;
+    installBanner.hidden = true;
+    return;
+  }
+
+  installButton.hidden = !visible;
+  const dismissed = localStorage.getItem("better-etlab-install-dismissed") === "1";
+  installBanner.hidden = !(visible && !dismissed);
+}
+
+async function promptInstall() {
+  if (!state.deferredInstallPrompt) {
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const message = isIos
+      ? "On iPhone/iPad: tap Share, then Add to Home Screen."
+      : "Install prompt is not available here. On Android Chrome use menu → Install app / Add to Home screen. On LAN HTTP, Chrome often requires HTTPS for the automatic popup.";
+    state.settingsMessage = message;
+    syncStatus.textContent = "Install via browser menu";
+    if (state.view === "settings") render();
+    alert(message);
+    return;
+  }
+
+  state.deferredInstallPrompt.prompt();
+  const choice = await state.deferredInstallPrompt.userChoice;
+  state.deferredInstallPrompt = null;
+  showInstallUi(false);
+  syncStatus.textContent =
+    choice.outcome === "accepted" ? "App install started" : "Install dismissed";
+}
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  state.deferredInstallPrompt = event;
+  showInstallUi(true);
+});
+
+window.addEventListener("appinstalled", () => {
+  state.deferredInstallPrompt = null;
+  localStorage.setItem("better-etlab-install-dismissed", "1");
+  showInstallUi(false);
+  syncStatus.textContent = "App installed";
+});
+
+installButton.addEventListener("click", () => {
+  promptInstall();
+});
+
+installBannerButton.addEventListener("click", () => {
+  promptInstall();
+});
+
+installDismissButton.addEventListener("click", () => {
+  localStorage.setItem("better-etlab-install-dismissed", "1");
+  installBanner.hidden = true;
+});
+
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 
+showInstallUi(false);
 await loadData();
 render();
