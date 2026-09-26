@@ -100,7 +100,7 @@ def load_cookie():
     return None, None
 
 
-def build_status():
+def build_status(verify=False):
     cookie, cookie_source = load_cookie()
     session = load_session_meta() or {}
     files = {}
@@ -114,7 +114,7 @@ def build_status():
             "updatedAt": file_updated_at(file_name),
         }
 
-    return {
+    status = {
         "ok": True,
         "hasCookie": bool(cookie),
         "cookieSource": cookie_source,
@@ -123,6 +123,13 @@ def build_status():
         "sessionSource": session.get("source"),
         "files": files,
     }
+
+    if verify and cookie:
+        status["sessionValid"] = verify_session(cookie).get("loggedIn", False)
+    elif "sessionValid" in session:
+        status["sessionValid"] = bool(session.get("sessionValid"))
+
+    return status
 
 
 def read_json_body(handler):
@@ -150,7 +157,9 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/status":
-            self.write_json(build_status())
+            query = parsed.query
+            verify = "verify=1" in query or "verify=true" in query
+            self.write_json(build_status(verify=verify))
             return
 
         if path == "/api/me":
@@ -254,15 +263,38 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
         cookie, cookie_source = load_cookie()
         if not cookie:
             self.write_json(
-                {"error": "Login or ETLAB_COOKIE is required before syncing"},
+                {"error": "Please login first. No ETLab session cookie found."},
                 status=HTTPStatus.BAD_REQUEST,
             )
             return
+
+        verification = verify_session(cookie)
+        if not verification.get("loggedIn"):
+            clear_session()
+            self.write_json(
+                {
+                    "error": "Session expired. Please login again.",
+                    "sessionValid": False,
+                },
+                status=HTTPStatus.UNAUTHORIZED,
+            )
+            return
+
+        try:
+            body = {}
+            content_length = int(self.headers.get("Content-Length", "0"))
+            if content_length:
+                body = read_json_body(self)
+        except json.JSONDecodeError:
+            body = {}
+
+        force_refresh = bool(body.get("forceRefresh"))
 
         try:
             child_env = {
                 **os.environ,
                 "ETLAB_COOKIE": cookie,
+                "ETLAB_FORCE_REFRESH": "1" if force_refresh else "0",
             }
             result = subprocess.run(
                 [sys.executable, "fetch_etlab.py"],
@@ -273,6 +305,20 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
                 text=True,
             )
         except subprocess.CalledProcessError as error:
+            combined = f"{error.stdout or ''}\n{error.stderr or ''}".lower()
+            if "login" in combined and ("required" in combined or "user/login" in combined):
+                clear_session()
+                self.write_json(
+                    {
+                        "error": "Session expired during sync. Please login again.",
+                        "stdout": error.stdout,
+                        "stderr": error.stderr,
+                        "sessionValid": False,
+                    },
+                    status=HTTPStatus.UNAUTHORIZED,
+                )
+                return
+
             self.write_json(
                 {
                     "error": "Sync failed",
@@ -287,6 +333,7 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
             {
                 "ok": True,
                 "cookieSource": cookie_source,
+                "forceRefresh": force_refresh,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
             }

@@ -5,6 +5,7 @@ const DATA_SOURCES = {
   attendanceDetails: ["/api/attendance/day-details", "attendance-day-details.json"],
   results: ["/api/results", "results.json"],
   status: ["/api/status"],
+  me: ["/api/me"],
 };
 
 const app = document.querySelector("#app");
@@ -128,6 +129,28 @@ function render() {
   attachViewHandlers();
 }
 
+function sessionBanner() {
+  const me = state.data.me;
+  if (!me) return "";
+  if (me.hasCookie && me.sessionValid === false) {
+    return `
+      <section class="card soft">
+        <h2>Session expired</h2>
+        <p class="muted">Your ETLab session is no longer valid. Go to Settings and login again, then Sync.</p>
+      </section>
+    `;
+  }
+  if (!me.hasCookie) {
+    return `
+      <section class="card soft">
+        <h2>Not logged in</h2>
+        <p class="muted">Go to Settings, login with your ETLab account, then Sync to refresh data.</p>
+      </section>
+    `;
+  }
+  return "";
+}
+
 function renderDashboard() {
   const subjects = state.data.attendanceSubject?.subjects || [];
   const materials = state.data.materials || [];
@@ -142,6 +165,7 @@ function renderDashboard() {
     .filter((subject) => subject.percent < 85);
 
   return `
+    ${sessionBanner()}
     <div class="grid cols-3">
       ${metricCard("Overall Attendance", `${overallPercent || "-"}%`, `${month?.summary?.total || ""} this month`, attendanceTone(overallPercent))}
       ${metricCard("Materials", materials.length, "Study files and links", "good")}
@@ -419,10 +443,17 @@ function renderResources() {
 
 function renderSettings() {
   const status = state.data.status;
+  const me = state.data.me;
   const files = status?.files ? Object.entries(status.files) : [];
+  const sessionValid = me?.sessionValid;
+  const sessionPill =
+    sessionValid === true ? "good" : sessionValid === false ? "bad" : status?.hasCookie ? "warn" : "bad";
+  const sessionLabel =
+    sessionValid === true ? "Valid" : sessionValid === false ? "Expired" : status?.hasCookie ? "Unknown" : "Missing";
 
   return `
     <div class="grid cols-2">
+      ${sessionBanner()}
       <section class="card">
         <h2>ETLab Login</h2>
         <p class="muted">Sign in with your normal ETLab username and password. The backend stores only the session cookie locally.</p>
@@ -433,7 +464,7 @@ function renderSettings() {
                   <strong>${escapeHtml(status.username)}</strong>
                   <span class="muted">Logged in ${escapeHtml(status.loggedInAt || "")}</span>
                 </div>
-                <span class="pill good">Session</span>
+                <span class="pill ${sessionPill}">${sessionLabel}</span>
               </div>`
             : ""
         }
@@ -456,7 +487,7 @@ function renderSettings() {
               <strong>Session Cookie</strong>
               <span class="muted">${status?.cookieSource ? `Loaded from ${status.cookieSource}` : "Not detected"}</span>
             </div>
-            <span class="pill ${status?.hasCookie ? "good" : "bad"}">${status?.hasCookie ? "Ready" : "Missing"}</span>
+            <span class="pill ${sessionPill}">${sessionLabel}</span>
           </div>
           <div class="list-item">
             <div>
@@ -611,8 +642,11 @@ function attachViewHandlers() {
         if (!response.ok) {
           throw new Error(result.error || "Login failed");
         }
-        state.settingsMessage = `Logged in as ${result.login?.username || result.username || formData.get("username")}. You can Sync now.`;
+        state.settingsMessage = `Logged in as ${result.login?.username || result.username || formData.get("username")}. Syncing...`;
         await loadData();
+        render();
+        await runSync({ forceRefresh: true, fromLogin: true });
+        state.settingsMessage = `Logged in as ${result.login?.username || formData.get("username")}. Sync finished.`;
       } catch (error) {
         state.settingsMessage = error.message || "Login failed";
       }
@@ -650,15 +684,22 @@ refreshButton.addEventListener("click", async () => {
   render();
 });
 
-syncButton.addEventListener("click", async () => {
+async function runSync({ forceRefresh = true, fromLogin = false } = {}) {
   syncButton.disabled = true;
-  syncStatus.textContent = "Syncing ETLab...";
+  syncStatus.textContent = fromLogin ? "Logged in. Syncing ETLab..." : "Syncing ETLab...";
 
   try {
-    const response = await fetch("/api/sync", { method: "POST" });
+    const response = await fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ forceRefresh }),
+    });
     const result = await response.json();
     if (!response.ok) {
       state.syncLog = [result.error, result.stdout, result.stderr].filter(Boolean).join("\n\n");
+      if (response.status === 401) {
+        await loadData();
+      }
       throw new Error(result.error || "Sync failed");
     }
     state.syncLog = [result.stdout, result.stderr].filter(Boolean).join("\n\n").trim();
@@ -672,8 +713,17 @@ syncButton.addEventListener("click", async () => {
     state.syncMessage = error.message || "Sync failed";
     syncStatus.textContent = state.syncMessage;
     render();
+    throw error;
   } finally {
     syncButton.disabled = false;
+  }
+}
+
+syncButton.addEventListener("click", async () => {
+  try {
+    await runSync({ forceRefresh: true });
+  } catch {
+    // Error already shown in UI.
   }
 });
 

@@ -138,7 +138,7 @@ def run_parser(command):
     subprocess.run(command, check=True)
 
 
-def fetch_day_details(cookie: str):
+def fetch_day_details(cookie: str, force_refresh=False):
     month_json_path = Path("attendance-month.json")
     if not month_json_path.exists():
         return
@@ -151,9 +151,12 @@ def fetch_day_details(cookie: str):
             continue
 
         output_path = Path(f"attendance-day-{date}.html")
-        if output_path.exists():
+        if output_path.exists() and not force_refresh:
             print(f"Skipping existing {output_path}")
             continue
+
+        if force_refresh and output_path.exists():
+            print(f"Refreshing {output_path}")
 
         save_html(details_url, str(output_path), cookie, ajax=True)
         time.sleep(0.3)
@@ -166,13 +169,19 @@ def main():
         print("Example: export ETLAB_COOKIE='PHPSESSID=...; other_cookie=...'", file=sys.stderr)
         sys.exit(1)
 
+    force_refresh = os.environ.get("ETLAB_FORCE_REFRESH", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
     fetch_materials(cookie)
     fetch_attendance(cookie)
     fetch_results(cookie)
 
     run_parser([sys.executable, "parse_materials.py"])
     run_parser([sys.executable, "parse_attendance.py"])
-    fetch_day_details(cookie)
+    fetch_day_details(cookie, force_refresh=force_refresh)
     run_parser([sys.executable, "parse_attendance.py"])
     run_parser([sys.executable, "parse_results.py"])
 
