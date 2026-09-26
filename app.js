@@ -748,11 +748,21 @@ syncButton.addEventListener("click", async () => {
   }
 });
 
+const INSTALL_AUTO_DELAY_MS = 2 * 60 * 1000;
+
 function isStandaloneApp() {
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
     window.navigator.standalone === true
   );
+}
+
+function installDismissed() {
+  return localStorage.getItem("better-etlab-install-dismissed") === "1";
+}
+
+function installAutoPrompted() {
+  return localStorage.getItem("better-etlab-install-auto-prompted") === "1";
 }
 
 function showInstallUi(visible) {
@@ -763,16 +773,17 @@ function showInstallUi(visible) {
   }
 
   installButton.hidden = !visible;
-  const dismissed = localStorage.getItem("better-etlab-install-dismissed") === "1";
-  installBanner.hidden = !(visible && !dismissed);
+  installBanner.hidden = !(visible && !installDismissed());
 }
 
-async function promptInstall() {
+async function promptInstall({ automatic = false } = {}) {
   if (!state.deferredInstallPrompt) {
+    if (automatic) return;
+
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const message = isIos
       ? "On iPhone/iPad: tap Share, then Add to Home Screen."
-      : "Install prompt is not available here. On Android Chrome use menu → Install app / Add to Home screen. On LAN HTTP, Chrome often requires HTTPS for the automatic popup.";
+      : "Install prompt is not available on this connection yet. After we deploy on HTTPS, Chrome can show the automatic install popup. For now use Chrome menu → Install app / Add to Home screen.";
     state.settingsMessage = message;
     syncStatus.textContent = "Install via browser menu";
     if (state.view === "settings") render();
@@ -784,19 +795,53 @@ async function promptInstall() {
   const choice = await state.deferredInstallPrompt.userChoice;
   state.deferredInstallPrompt = null;
   showInstallUi(false);
+
+  if (automatic) {
+    localStorage.setItem("better-etlab-install-auto-prompted", "1");
+  }
+
+  if (choice.outcome !== "accepted") {
+    localStorage.setItem("better-etlab-install-dismissed", "1");
+  }
+
   syncStatus.textContent =
     choice.outcome === "accepted" ? "App install started" : "Install dismissed";
+}
+
+function scheduleAutoInstallPrompt() {
+  if (isStandaloneApp() || installDismissed() || installAutoPrompted()) {
+    return;
+  }
+
+  window.setTimeout(async () => {
+    if (
+      isStandaloneApp() ||
+      installDismissed() ||
+      installAutoPrompted() ||
+      !state.deferredInstallPrompt
+    ) {
+      return;
+    }
+
+    try {
+      await promptInstall({ automatic: true });
+    } catch {
+      // Ignore auto-prompt failures.
+    }
+  }, INSTALL_AUTO_DELAY_MS);
 }
 
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
   state.deferredInstallPrompt = event;
   showInstallUi(true);
+  scheduleAutoInstallPrompt();
 });
 
 window.addEventListener("appinstalled", () => {
   state.deferredInstallPrompt = null;
   localStorage.setItem("better-etlab-install-dismissed", "1");
+  localStorage.setItem("better-etlab-install-auto-prompted", "1");
   showInstallUi(false);
   syncStatus.textContent = "App installed";
 });
@@ -819,5 +864,6 @@ if ("serviceWorker" in navigator) {
 }
 
 showInstallUi(false);
+scheduleAutoInstallPrompt();
 await loadData();
 render();
