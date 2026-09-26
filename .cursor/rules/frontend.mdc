@@ -1,6 +1,6 @@
 ---
 description: Mobile-first PWA UI rules for ETLaban. Prevent generic AI dashboard slop.
-globs: "*.html,*.css,app.js,auth.js,landing.js,login.js,ui.js"
+globs: "public/**"
 alwaysApply: false
 ---
 
@@ -49,4 +49,4 @@ Avoid AI-slop defaults:
 
 ## How to change UI
 
-Edit the matching page files (`index.html`, `login.html`, `app.html`, `base.css`, `public.css`, `app.css`, and the JS for that page). New static files must also be added to `APP_SHELL` in `sw.js`. No inline `<script>`: the CSP in `vercel.json` is `script-src 'self'` (theme bootstrapping lives in `theme-init.js`). Prefer CSS and markup changes over new JS frameworks.
+Edit the matching page files in `public/` (`index.html`, `login.html`, `app.html`, `base.css`, `public.css`, `app.css`, and the JS for that page). New static files must also be added to `APP_SHELL` in `sw.js`. No inline `<script>`: the CSP in `vercel.json` is `script-src 'self'` (theme bootstrapping lives in `theme-init.js`). Prefer CSS and markup changes over new JS frameworks.

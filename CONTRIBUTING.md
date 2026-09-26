@@ -36,7 +36,7 @@ refresh the page.
 
 ## How the code is organised
 
-- **Front end** (plain HTML, CSS and JavaScript modules, no framework):
+- **Front end** (plain HTML, CSS and JavaScript modules in `public/`, no framework):
   - `base.css` holds the design system: colours, type, buttons, form fields, motion.
     Reuse its tokens (`--bg`, `--panel`, `--text`, `--muted`, `--line`, `--brand`, …).
   - `public.css` is for the landing and login pages. `app.css` is for the app.
@@ -61,7 +61,7 @@ refresh the page.
   (use `escapeHtml` in `app.js`). Only allow `http(s)` links (use `safeUrl`).
 - **The server stays stateless.** Don't write files, and don't add a database or
   logging that could capture passwords, cookies or student data.
-- If you add a front-end file, also add it to `APP_SHELL` in `sw.js`.
+- Front-end files live in `public/`. If you add one, also add it to `APP_SHELL` in `public/sw.js`.
 
 ## When ETLab changes a page
 

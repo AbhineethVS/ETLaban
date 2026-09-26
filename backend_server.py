@@ -18,6 +18,7 @@ from etlab.api import MAX_BODY, handle
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8000"))
 ROOT = Path(__file__).resolve().parent
+PUBLIC = ROOT / "public"
 
 PAGES = {"/": "index.html", "/login": "login.html", "/app": "app.html"}
 STATIC_TYPES = {".html", ".css", ".js", ".svg", ".png", ".webmanifest"}
@@ -60,9 +61,9 @@ class EtlabanHandler(BaseHTTPRequestHandler):
 
     def _serve_static(self, path):
         name = PAGES.get(path.rstrip("/") or "/", path.lstrip("/"))
-        file_path = (ROOT / name).resolve()
-        # Only top-level front-end files, never Python, dotfiles or folders.
-        if file_path.parent != ROOT or file_path.suffix not in STATIC_TYPES or not file_path.is_file():
+        file_path = (PUBLIC / name).resolve()
+        # Only files directly inside public/, never anything else on disk.
+        if file_path.parent != PUBLIC or file_path.suffix not in STATIC_TYPES or not file_path.is_file():
             self._send(404, b"Not found", [("Content-Type", "text/plain")])
             return
 

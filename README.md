@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="icon.svg" alt="" width="72" height="72" />
+  <img src="public/icon.svg" alt="" width="72" height="72" />
 </p>
 
 <h1 align="center">ETLaban</h1>
@@ -120,12 +120,14 @@ The full guide, with troubleshooting, is in [docs/deployment.md](docs/deployment
 ## How the project is organised
 
 ```text
-index.html, login.html, app.html   The three pages: landing, login, and the app
-base.css, public.css, app.css      Styles: shared design system, public pages, app
-app.js                             The app: views, routing, sync, calendar, charts
-landing.js, login.js, auth.js      Page logic and session helpers
-ui.js, theme-init.js               Theme switching and small shared behaviour
-sw.js, manifest.webmanifest        Installable app (PWA) support
+public/                            Everything the browser loads
+  index.html, login.html, app.html The three pages: landing, login, and the app
+  base.css, public.css, app.css    Styles: shared design system, public pages, app
+  app.js                           The app: views, routing, sync, calendar, charts
+  landing.js, login.js, auth.js    Page logic and session helpers
+  ui.js, theme-init.js             Theme switching and small shared behaviour
+  sw.js, manifest.webmanifest      Installable app (PWA) support
+  icon.svg, *.png                  App icons
 
 etlab/                             The backend: log in, fetch pages, read them
   api.py                           The API routes
