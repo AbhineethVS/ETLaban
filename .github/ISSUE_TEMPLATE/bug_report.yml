@@ -7,7 +7,7 @@ body:
       value: |
         Thanks for reporting! **Never paste your password, cookies, or real ETLab pages or data here.**
         If you want to show an example, change the names and numbers first.
-        Found a security problem? Please [report it privately](https://github.com/AbhineethVS/better-etlab/security/advisories/new) instead.
+        Found a security problem? Please [report it privately](https://github.com/AbhineethVS/ETLaban/security/advisories/new) instead.
 
   - type: textarea
     id: what-happened

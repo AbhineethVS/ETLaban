@@ -11,7 +11,7 @@ Report it privately instead:
 
 1. Go to the repository's **Security** tab.
 2. Click **Report a vulnerability**
-   ([direct link](https://github.com/AbhineethVS/better-etlab/security/advisories/new)).
+   ([direct link](https://github.com/AbhineethVS/ETLaban/security/advisories/new)).
 3. Describe what you found, how to reproduce it, and what someone could do with it.
 
 Only the maintainer can see the report. You'll get a reply as soon as possible.

@@ -25,8 +25,8 @@ For bigger changes, please open an issue first so we can agree on the approach.
 You need Python 3.10 or newer and a CET ETLab account.
 
 ```bash
-git clone https://github.com/AbhineethVS/better-etlab.git
-cd better-etlab
+git clone https://github.com/AbhineethVS/ETLaban.git
+cd ETLaban
 pip install -r requirements.txt
 python backend_server.py
 ```

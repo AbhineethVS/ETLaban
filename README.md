@@ -91,8 +91,8 @@ also refreshes by itself if your data is more than 3 hours old.
 You need **Python 3.10 or newer**.
 
 ```bash
-git clone https://github.com/AbhineethVS/better-etlab.git
-cd better-etlab
+git clone https://github.com/AbhineethVS/ETLaban.git
+cd ETLaban
 pip install -r requirements.txt
 python backend_server.py
 ```
