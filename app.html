@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en" class="is-checking">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f7f5f0" />
+    <script>
+      (() => {
+        const root = document.documentElement;
+        let theme = null;
+        try {
+          theme = localStorage.getItem("better-etlab-theme");
+        } catch {}
+        if (theme !== "light" && theme !== "dark") {
+          theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        root.dataset.theme = theme;
+        root.classList.add("js");
+        document
+          .querySelector('meta[name="theme-color"]')
+          .setAttribute("content", theme === "dark" ? "#0f0f0e" : "#f7f5f0");
+      })();
+    </script>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Better ETLab" />
+    <title>Better ETLab</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap"
+    />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <div class="sync-line" aria-hidden="true"></div>
+
+    <div class="shell">
+      <aside class="rail">
+        <a class="brand" href="#home" aria-label="Better ETLab home">
+          <img src="icon.svg" alt="" width="28" height="28" />
+          <span class="wordmark"><em>Better</em> ETLab</span>
+        </a>
+
+        <nav id="rail-nav" class="rail-nav" aria-label="Main"></nav>
+
+        <div class="rail-foot">
+          <div class="rail-sync">
+            <span class="rail-sync-text" data-sync-status>Loading…</span>
+            <button class="icon-btn sync-btn" type="button" data-action="sync" aria-label="Sync with ETLab">
+              <span data-sync-icon></span>
+            </button>
+          </div>
+          <a class="rail-account" href="#settings">
+            <span id="rail-avatar" class="avatar avatar-sm display"></span>
+            <span id="rail-name" class="rail-name"></span>
+          </a>
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <a class="brand" href="#home" aria-label="Better ETLab home">
+            <img src="icon.svg" alt="" width="28" height="28" />
+            <span class="wordmark"><em>Better</em> ETLab</span>
+          </a>
+          <button class="icon-btn sync-btn" type="button" data-action="sync" aria-label="Sync with ETLab">
+            <span data-sync-icon></span>
+          </button>
+        </header>
+
+        <main id="app" class="view" aria-live="polite"></main>
+      </div>
+    </div>
+
+    <nav id="tabbar" class="tabbar" aria-label="Main"></nav>
+
+    <div id="install-card" class="install-card" role="dialog" aria-label="Install Better ETLab" hidden>
+      <img src="icon.svg" alt="" width="36" height="36" />
+      <div class="install-text">
+        <p class="install-title">Install Better ETLab</p>
+        <p class="install-sub">Open it from your home screen.</p>
+      </div>
+      <button class="btn btn-primary btn-sm" type="button" data-action="install">Install</button>
+      <button class="icon-btn" type="button" data-action="dismiss-install" aria-label="Not now">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+          <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />
+        </svg>
+      </button>
+    </div>
+
+    <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

@@ -2,10 +2,10 @@
   "name": "Better ETLab",
   "short_name": "Better ETLab",
   "description": "A cleaner student dashboard for ETLab data.",
-  "start_url": "./index.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f4f7fb",
+  "background_color": "#f7f5f0",
   "theme_color": "#101828",
   "icons": [
     {

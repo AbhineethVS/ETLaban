@@ -34,8 +34,20 @@ API_FILES = {
 STATIC_FILES = {
     "/": "index.html",
     "/index.html": "index.html",
+    "/login": "login.html",
+    "/login/": "login.html",
+    "/login.html": "login.html",
+    "/app": "app.html",
+    "/app/": "app.html",
+    "/app.html": "app.html",
     "/app.js": "app.js",
-    "/styles.css": "styles.css",
+    "/auth.js": "auth.js",
+    "/landing.js": "landing.js",
+    "/login.js": "login.js",
+    "/base.css": "base.css",
+    "/public.css": "public.css",
+    "/app.css": "app.css",
+    "/ui.js": "ui.js",
     "/manifest.webmanifest": "manifest.webmanifest",
     "/sw.js": "sw.js",
     "/icon.svg": "icon.svg",
@@ -406,9 +418,9 @@ def local_lan_ips():
 def main():
     server = ThreadingHTTPServer((HOST, PORT), BetterEtlabHandler)
     print(f"Better ETLab backend running on {HOST}:{PORT}")
-    print(f"Local:  http://127.0.0.1:{PORT}/index.html")
+    print(f"Local:  http://127.0.0.1:{PORT}/")
     for ip in local_lan_ips():
-        print(f"Phone:  http://{ip}:{PORT}/index.html")
+        print(f"Phone:  http://{ip}:{PORT}/")
     print("Same Wi-Fi required. Allow Python through Windows Firewall if phone cannot connect.")
     print("Press Ctrl+C to stop.")
     server.serve_forever()

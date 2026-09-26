@@ -1,6 +1,6 @@
 ---
 description: Mobile-first PWA UI rules for Better ETLab. Prevent generic AI dashboard slop.
-globs: index.html,styles.css,app.js
+globs: "*.html,*.css,app.js,auth.js,landing.js,login.js,ui.js"
 alwaysApply: false
 ---
 
@@ -8,31 +8,44 @@ alwaysApply: false
 
 This is a student PWA used mostly on a phone. Desktop can look good, but mobile is the default.
 
+## Pages
+
+- Logged out: `/` landing and `/login`. No dashboard sidebar.
+- Logged in: `/app` with 5 hash-routed views: Home, Attendance (Subjects / Calendar), Results, Materials (ETLab / Saved links), Settings. Routes look like `#attendance/calendar/2026-09-09`.
+- Landing navbar is logo + Log in. Already signed in users skip landing and go to `/app`.
+- Settings is account/sync/install, not a login form.
+
 ## Layout
 
-- Phone: bottom tab bar, not a sticky dark sidebar that turns into a horizontal scroller.
-- Keep the 6 views: Dashboard, Attendance, Results, Materials, Resources, Settings.
+- Phone app chrome: bottom tab bar, not a sticky dark sidebar that turns into a horizontal scroller.
 - Respect safe-area insets. Main content must not hide under the tab bar.
 - Touch targets at least 44px. Primary actions stay visible without hunting.
 
 ## Visual language
 
-Reuse the existing tokens in `styles.css` (`--bg`, `--panel`, `--text`, `--muted`, `--line`, `--brand`). Do not invent a second palette.
+Premium and minimal: warm paper/ink neutrals, one clay accent, lots of space, hairlines instead of boxes.
+
+- Design tokens live at the top of `base.css` (`--bg`, `--panel`, `--panel-soft`, `--text`, `--muted`, `--faint`, `--line`, `--line-strong`, `--brand`, `--ink`, `--on-ink`, `--danger`), with a `:root[data-theme="dark"]` override. Reuse them; do not invent a second palette. `base.css` also holds type, buttons, form fields and motion; `public.css` is landing/login only; `app.css` is the signed-in app.
+- Status colour is three states only, via `data-tone`: `safe` (ink), `close` (within 5 points of the target, `--brand`), `risk` (below target, `--danger`). No green-to-red ramps.
+- Fonts: Instrument Serif for display headings (italic `em` in `--brand` for the accent word), Geist for UI text, Geist Mono for small uppercase labels and numbers.
+- Themes: light and dark. The inline `<head>` script sets `data-theme` before paint (stored in `localStorage["better-etlab-theme"]`, else the OS setting); `ui.js` handles the toggle.
+- Primary buttons are ink pills (`.btn-primary`); secondary are hairline ghost pills. The accent is for emphasis only, not for large fills.
+- Motion: short eased entrances (`.rise`, headline `.w` words, `[data-reveal]` on scroll), hover effects only under `@media (hover: hover)`, and everything must respect `prefers-reduced-motion`.
 
 Avoid AI-slop defaults:
 
-- Giant display headings (`clamp(2rem, 4vw, 3.4rem)` and similar)
 - Decorative "good / warn / bad" pills as the main UI
-- 24px radius on every card, heavy drop shadows, Inter-everywhere dashboards
+- Card-in-card layouts, heavy drop shadows, big radius on everything
 - Purple gradients, glassmorphism, blobs, fake empty-state illustrations
 - 7-column calendars that overflow on a 360px screen
 
 ## Content density
 
+- Landing stays short: what it is, what you get, one login action.
 - Dashboard should answer "am I in trouble?" in one screen, then get out of the way.
 - Attendance calendar must be usable on a phone: compact cells or a list/week switch, not tiny unreadable day cards.
 - Lists (materials, results) should scan: title, subject, one action. No nested card-in-card.
 
 ## How to change UI
 
-Edit `index.html`, `styles.css`, and `app.js` only unless a new asset is required. Prefer CSS and markup changes over new JS frameworks.
+Edit the matching page files (`index.html`, `login.html`, `app.html`, `base.css`, `public.css`, `app.css`, and the JS for that page). New static files must also be added to `STATIC_FILES` in `backend_server.py` and `APP_SHELL` in `sw.js`. Prefer CSS and markup changes over new JS frameworks.

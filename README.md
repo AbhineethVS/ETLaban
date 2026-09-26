@@ -21,20 +21,20 @@ python backend_server.py
 On this PC:
 
 ```text
-http://127.0.0.1:8000/index.html
+http://127.0.0.1:8000/
 ```
 
 On your phone (same Wi-Fi), use the Phone URL printed by the server, for example:
 
 ```text
-http://192.168.x.x:8000/index.html
+http://192.168.x.x:8000/
 ```
 
 Then:
 
 1. Open that URL in Chrome/Safari
-2. Go to **Settings → Login**
-3. Sync once
+2. Log in with your ETLab username and password
+3. Wait for the first sync on the dashboard
 4. Install as app / Add to Home Screen if you want
 
 If the phone cannot connect, allow Python through Windows Firewall for private networks.

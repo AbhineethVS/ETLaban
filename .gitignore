@@ -1,6 +1,6 @@
 .env
 session.json
-scrape/
+scrape/**
+!scrape/.gitkeep
+misc/
 __pycache__/
-*.html
-!index.html

@@ -1,8 +1,16 @@
-const CACHE_NAME = "better-etlab-v2";
+const CACHE_NAME = "better-etlab-v5";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css",
+  "./login.html",
+  "./app.html",
+  "./base.css",
+  "./public.css",
+  "./app.css",
+  "./ui.js",
+  "./auth.js",
+  "./landing.js",
+  "./login.js",
   "./app.js",
   "./manifest.webmanifest",
   "./icon.svg",
@@ -27,6 +35,12 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (!event.request.url.startsWith("http")) return;
+
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith("/api/")) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   event.respondWith(
     fetch(event.request)

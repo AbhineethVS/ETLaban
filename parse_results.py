@@ -1,5 +1,6 @@
 import json
 import re
+from pathlib import Path
 
 from parse_attendance import TableParser, parse_ratio
 from paths import scrape_path
