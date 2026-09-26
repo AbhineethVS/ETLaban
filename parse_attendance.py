@@ -4,6 +4,8 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin
 
+from paths import scrape_path
+
 
 BASE_URL = "https://cet.etlab.in"
 RATIO_RE = re.compile(r"(?P<present>\d+)\s*/\s*(?P<total>\d+)(?:\s*\((?P<percent>[^)]+)\))?")
@@ -239,29 +241,32 @@ def parse_day_detail(path: Path):
 
 
 def write_json(path: Path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"Wrote {path}")
 
 
 def main():
     outputs = {
-        "attendance-subject.json": parse_subject_summary(Path("attendance-subject.html")),
+        "attendance-subject.json": parse_subject_summary(scrape_path("attendance-subject.html")),
         "attendance-with-duty-leave.json": parse_subject_summary(
-            Path("attendance-by-sub-with-duty-leave.html"),
+            scrape_path("attendance-by-sub-with-duty-leave.html"),
             includes_duty_leave=True,
         ),
-        "credit-based-attendance.json": parse_subject_summary(Path("credit-based-attendance.html")),
-        "attendance-month.json": parse_month_summary(Path("attendance-month.html")),
+        "credit-based-attendance.json": parse_subject_summary(
+            scrape_path("credit-based-attendance.html")
+        ),
+        "attendance-month.json": parse_month_summary(scrape_path("attendance-month.html")),
     }
 
-    day_detail_paths = sorted(Path(".").glob("attendance-day-*.html"))
+    day_detail_paths = sorted(scrape_path().glob("attendance-day-*.html"))
     if day_detail_paths:
         outputs["attendance-day-details.json"] = [
             parse_day_detail(path) for path in day_detail_paths
         ]
 
     for output_path, data in outputs.items():
-        write_json(Path(output_path), data)
+        write_json(scrape_path(output_path), data)
 
 
 if __name__ == "__main__":

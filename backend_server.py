@@ -6,7 +6,6 @@ import sys
 from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from etlab_auth import (
@@ -17,9 +16,8 @@ from etlab_auth import (
     save_session,
     verify_session,
 )
+from paths import ROOT, SCRAPE_DIR
 
-
-ROOT = Path(__file__).resolve().parent
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8000"))
 
@@ -47,14 +45,14 @@ STATIC_FILES = {
 
 
 def read_json_file(file_name):
-    path = ROOT / file_name
+    path = SCRAPE_DIR / file_name
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def file_updated_at(file_name):
-    path = ROOT / file_name
+    path = SCRAPE_DIR / file_name
     if not path.exists():
         return None
     return datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds")

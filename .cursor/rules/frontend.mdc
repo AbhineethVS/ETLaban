@@ -1,0 +1,38 @@
+---
+description: Mobile-first PWA UI rules for Better ETLab. Prevent generic AI dashboard slop.
+globs: index.html,styles.css,app.js
+alwaysApply: false
+---
+
+# Frontend
+
+This is a student PWA used mostly on a phone. Desktop can look good, but mobile is the default.
+
+## Layout
+
+- Phone: bottom tab bar, not a sticky dark sidebar that turns into a horizontal scroller.
+- Keep the 6 views: Dashboard, Attendance, Results, Materials, Resources, Settings.
+- Respect safe-area insets. Main content must not hide under the tab bar.
+- Touch targets at least 44px. Primary actions stay visible without hunting.
+
+## Visual language
+
+Reuse the existing tokens in `styles.css` (`--bg`, `--panel`, `--text`, `--muted`, `--line`, `--brand`). Do not invent a second palette.
+
+Avoid AI-slop defaults:
+
+- Giant display headings (`clamp(2rem, 4vw, 3.4rem)` and similar)
+- Decorative "good / warn / bad" pills as the main UI
+- 24px radius on every card, heavy drop shadows, Inter-everywhere dashboards
+- Purple gradients, glassmorphism, blobs, fake empty-state illustrations
+- 7-column calendars that overflow on a 360px screen
+
+## Content density
+
+- Dashboard should answer "am I in trouble?" in one screen, then get out of the way.
+- Attendance calendar must be usable on a phone: compact cells or a list/week switch, not tiny unreadable day cards.
+- Lists (materials, results) should scan: title, subject, one action. No nested card-in-card.
+
+## How to change UI
+
+Edit `index.html`, `styles.css`, and `app.js` only unless a new asset is required. Prefer CSS and markup changes over new JS frameworks.

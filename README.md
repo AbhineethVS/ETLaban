@@ -54,5 +54,5 @@ POST /api/cookie   # advanced fallback
 
 - `.env` and `session.json` are gitignored
 - passwords are not stored; only the session cookie is kept locally
-- generated `.html` / `.json` scrape files are also ignored
+- generated scrape dumps live in `scrape/` (HTML + JSON) and are gitignored
 - phone access requires the PC backend to keep running on the same Wi-Fi

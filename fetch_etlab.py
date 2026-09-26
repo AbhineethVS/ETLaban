@@ -9,6 +9,8 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse, parse_qs
 from urllib.request import Request, urlopen
 
+from paths import scrape_path
+
 
 BASE_URL = "https://cet.etlab.in"
 
@@ -60,10 +62,12 @@ def fetch_html(url: str, cookie: str, ajax=False) -> str:
         return response.read().decode("utf-8", errors="replace")
 
 
-def save_html(url: str, output_path: str, cookie: str, ajax=False) -> str:
-    print(f"Fetching {url} -> {output_path}")
+def save_html(url: str, output_path: Path, cookie: str, ajax=False) -> str:
+    path = Path(output_path)
+    print(f"Fetching {url} -> {path}")
     html = fetch_html(url, cookie, ajax=ajax)
-    Path(output_path).write_text(html, encoding="utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(html, encoding="utf-8")
     return html
 
 
@@ -86,7 +90,7 @@ def material_page_number(url: str):
 
 def fetch_materials(cookie: str):
     first_page_url = urljoin(BASE_URL, "/student/materials")
-    first_page_html = save_html(first_page_url, "materials.html", cookie)
+    first_page_html = save_html(first_page_url, scrape_path("materials.html"), cookie)
 
     material_links = extract_links(first_page_html)
     page_urls = {
@@ -97,7 +101,12 @@ def fetch_materials(cookie: str):
 
     for page_url in sorted(page_urls, key=material_page_number):
         page_number = material_page_number(page_url)
-        save_html(page_url, f"materials-page-{page_number}.html", cookie, ajax="ajax=" in page_url)
+        save_html(
+            page_url,
+            scrape_path(f"materials-page-{page_number}.html"),
+            cookie,
+            ajax="ajax=" in page_url,
+        )
 
 
 def find_attendance_links(html: str):
@@ -121,16 +130,16 @@ def find_attendance_links(html: str):
 
 def fetch_attendance(cookie: str):
     attendance_url = urljoin(BASE_URL, "/ktuacademics/student/attendance")
-    attendance_html = save_html(attendance_url, "attendance.html", cookie)
+    attendance_html = save_html(attendance_url, scrape_path("attendance.html"), cookie)
 
     attendance_links = find_attendance_links(attendance_html)
     for output_path, url in attendance_links.items():
-        save_html(url, output_path, cookie)
+        save_html(url, scrape_path(output_path), cookie)
 
 
 def fetch_results(cookie: str):
     results_url = urljoin(BASE_URL, "/student/results")
-    save_html(results_url, "results.html", cookie)
+    save_html(results_url, scrape_path("results.html"), cookie)
 
 
 def run_parser(command):
@@ -139,7 +148,7 @@ def run_parser(command):
 
 
 def fetch_day_details(cookie: str, force_refresh=False):
-    month_json_path = Path("attendance-month.json")
+    month_json_path = scrape_path("attendance-month.json")
     if not month_json_path.exists():
         return
 
@@ -150,7 +159,7 @@ def fetch_day_details(cookie: str, force_refresh=False):
         if not details_url or not date:
             continue
 
-        output_path = Path(f"attendance-day-{date}.html")
+        output_path = scrape_path(f"attendance-day-{date}.html")
         if output_path.exists() and not force_refresh:
             print(f"Skipping existing {output_path}")
             continue
@@ -158,7 +167,7 @@ def fetch_day_details(cookie: str, force_refresh=False):
         if force_refresh and output_path.exists():
             print(f"Refreshing {output_path}")
 
-        save_html(details_url, str(output_path), cookie, ajax=True)
+        save_html(details_url, output_path, cookie, ajax=True)
         time.sleep(0.3)
 
 

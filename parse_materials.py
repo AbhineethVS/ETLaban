@@ -5,6 +5,8 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin
 
+from paths import scrape_path
+
 
 BASE_URL = "https://cet.etlab.in"
 
@@ -89,9 +91,9 @@ def material_page_sort_key(path: Path):
 def main():
     html_paths = [Path(path) for path in sys.argv[1:]]
     if not html_paths:
-        html_paths = sorted(Path(".").glob("materials*.html"), key=material_page_sort_key)
+        html_paths = sorted(scrape_path().glob("materials*.html"), key=material_page_sort_key)
 
-    output_path = Path("materials.json")
+    output_path = scrape_path("materials.json")
     materials = []
 
     for html_path in html_paths:

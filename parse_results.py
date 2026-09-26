@@ -1,8 +1,8 @@
 import json
 import re
-from pathlib import Path
 
 from parse_attendance import TableParser, parse_ratio
+from paths import scrape_path
 
 
 RESULT_CATEGORIES = [
@@ -81,7 +81,7 @@ def parse_university_result_table(table):
 
 
 def main():
-    tables = parse_tables(Path("results.html"))
+    tables = parse_tables(scrape_path("results.html"))
 
     assessment_results = {}
     for index, (key, label) in enumerate(RESULT_CATEGORIES):
@@ -99,8 +99,9 @@ def main():
         "universityResult": university_result,
     }
 
-    Path("results.json").write_text(json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8")
-    print("Wrote results.json")
+    output_path = scrape_path("results.json")
+    output_path.write_text(json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"Wrote {output_path}")
 
 
 if __name__ == "__main__":
