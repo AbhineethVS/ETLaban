@@ -20,7 +20,7 @@ from etlab_auth import (
 
 
 ROOT = Path(__file__).resolve().parent
-HOST = "127.0.0.1"
+HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8000"))
 
 API_FILES = {
@@ -374,9 +374,42 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
         print(f"{self.address_string()} - {unquote(format % args)}")
 
 
+def local_lan_ips():
+    import socket
+
+    ips = []
+    try:
+        hostname = socket.gethostname()
+        for info in socket.getaddrinfo(hostname, None, family=socket.AF_INET):
+            ip = info[4][0]
+            if ip.startswith("127."):
+                continue
+            if ip not in ips:
+                ips.append(ip)
+    except OSError:
+        pass
+
+    if not ips:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.connect(("8.8.8.8", 80))
+            ip = sock.getsockname()[0]
+            sock.close()
+            if not ip.startswith("127."):
+                ips.append(ip)
+        except OSError:
+            pass
+
+    return ips
+
+
 def main():
     server = ThreadingHTTPServer((HOST, PORT), BetterEtlabHandler)
-    print(f"Better ETLab backend running at http://{HOST}:{PORT}")
+    print(f"Better ETLab backend running on {HOST}:{PORT}")
+    print(f"Local:  http://127.0.0.1:{PORT}/index.html")
+    for ip in local_lan_ips():
+        print(f"Phone:  http://{ip}:{PORT}/index.html")
+    print("Same Wi-Fi required. Allow Python through Windows Firewall if phone cannot connect.")
     print("Press Ctrl+C to stop.")
     server.serve_forever()
 
