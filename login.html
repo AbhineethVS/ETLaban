@@ -4,26 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#f7f5f0" />
-    <script>
-      (() => {
-        const root = document.documentElement;
-        let theme = null;
-        let signedIn = false;
-        try {
-          theme = localStorage.getItem("better-etlab-theme");
-          signedIn = localStorage.getItem("better-etlab-signed-in") === "1";
-        } catch {}
-        if (theme !== "light" && theme !== "dark") {
-          theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-        }
-        root.dataset.theme = theme;
-        root.classList.add("js");
-        if (signedIn) root.classList.add("is-checking");
-        document
-          .querySelector('meta[name="theme-color"]')
-          .setAttribute("content", theme === "dark" ? "#0f0f0e" : "#f7f5f0");
-      })();
-    </script>
+    <script src="theme-init.js" data-check-session></script>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />

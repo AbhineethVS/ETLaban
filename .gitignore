@@ -1,6 +1,8 @@
 .env
+.session-secret
 session.json
 scrape/**
 !scrape/.gitkeep
 misc/
 __pycache__/
+.vercel

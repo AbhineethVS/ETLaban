@@ -1897,20 +1897,6 @@ button.subject-head {
   animation: panel-in 0.35s var(--ease-out);
 }
 
-.log {
-  max-height: 280px;
-  margin: 0 18px 18px;
-  padding: 14px;
-  overflow: auto;
-  border-radius: 12px;
-  background: var(--soft);
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-
 .cookie-form {
   display: grid;
   justify-items: start;
@@ -1925,22 +1911,6 @@ button.subject-head {
   font-family: var(--font-mono);
   font-size: 0.85rem;
   resize: vertical;
-}
-
-.files {
-  margin: 0;
-  padding: 0 18px 12px;
-  list-style: none;
-  font-size: 0.8rem;
-}
-
-.files li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 9px 0;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
 }
 
 .btn-danger {

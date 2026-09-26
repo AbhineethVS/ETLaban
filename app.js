@@ -1,14 +1,14 @@
-import { getSession, registerServiceWorker, rememberSignedIn } from "./auth.js";
+import { DATA_KEY, clearCachedData, getSession, registerServiceWorker, rememberSignedIn } from "./auth.js";
 import { getThemePreference, initTheme, revealPage, setThemePreference } from "./ui.js";
 
-const DATA_SOURCES = {
-  materials: "/api/materials",
-  attendanceSubject: "/api/attendance/subject",
-  attendanceMonth: "/api/attendance/month",
-  attendanceDetails: "/api/attendance/day-details",
+// Fetched live from ETLab by the backend, then cached on this device only.
+const SOURCES = {
+  attendance: "/api/attendance",
   results: "/api/results",
-  status: "/api/status",
+  materials: "/api/materials",
 };
+const SOURCE_LABELS = { attendance: "attendance", results: "results", materials: "materials" };
+const STALE_AFTER_MS = 3 * 60 * 60 * 1000;
 
 const VIEWS = {
   home: { title: "Home", icon: "home" },
@@ -68,7 +68,7 @@ const state = {
   data: {},
   session: null,
   syncing: false,
-  syncLog: "",
+  savedAt: null,
   lastSyncError: null,
   selectedDay: null,
   expanded: new Set(),
@@ -454,9 +454,7 @@ function semesterLabel() {
 }
 
 function lastSynced() {
-  const files = Object.values(state.data.status?.files || {});
-  const times = files.map((f) => (f.updatedAt ? new Date(f.updatedAt).getTime() : 0)).filter(Boolean);
-  return times.length ? new Date(Math.max(...times)) : null;
+  return state.savedAt ? new Date(state.savedAt) : null;
 }
 
 function hasData() {
@@ -475,22 +473,32 @@ function syncStatusText() {
    Loading + sync
    ------------------------------------------------------------------------ */
 
-async function loadData() {
-  const entries = await Promise.all(
-    Object.entries(DATA_SOURCES).map(async ([key, path]) => {
-      try {
-        const response = await fetch(path, { cache: "no-store" });
-        return [key, response.ok ? await response.json() : null];
-      } catch {
-        return [key, null];
-      }
-    }),
-  );
-  state.data = Object.fromEntries(entries);
+function readCache() {
+  const cached = readJson(DATA_KEY, null);
+  return cached && typeof cached === "object" ? cached : {};
+}
+
+function applyData(cached) {
+  state.data = {
+    attendanceSubject: cached.attendance?.subject || null,
+    attendanceMonth: cached.attendance?.month || null,
+    attendanceDetails: cached.attendance?.dayDetails || [],
+    results: cached.results || null,
+    materials: cached.materials || [],
+  };
+  state.savedAt = cached.savedAt || null;
   state.cache = {};
   if (!state.selectedDay || !monthModel()?.days.some((d) => d.date === state.selectedDay)) {
     state.selectedDay = defaultSelectedDay();
   }
+}
+
+async function loadData() {
+  applyData(readCache());
+}
+
+function isStale() {
+  return !state.savedAt || Date.now() - state.savedAt > STALE_AFTER_MS;
 }
 
 function setSyncing(syncing) {
@@ -509,37 +517,63 @@ function updateSyncStatus() {
   });
 }
 
-async function runSync({ fromLogin = false } = {}) {
+async function fetchSource(key) {
+  const response = await fetch(SOURCES[key], { cache: "no-store", credentials: "same-origin" });
+  const body = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    const error = new Error(body.error || "Log in again");
+    error.signedOut = true;
+    error.expired = Boolean(body.expired);
+    throw error;
+  }
+  if (!response.ok) throw new Error(body.error || `Couldn't load ${SOURCE_LABELS[key]}`);
+  return body;
+}
+
+async function runSync({ fromLogin = false, quiet = false } = {}) {
   if (state.syncing) return;
   setSyncing(true);
   state.lastSyncError = null;
   if (!hasData()) render();
 
-  try {
-    const response = await fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ forceRefresh: true }),
-    });
-    const result = await response.json().catch(() => ({}));
-    state.syncLog = [result.error, result.stdout, result.stderr].filter(Boolean).join("\n\n").trim();
-    if (response.status === 401) {
-      rememberSignedIn(false);
-      window.location.replace("/login?expired=1");
-      return;
-    }
-    if (!response.ok) throw new Error(result.error || "Sync failed");
+  const keys = Object.keys(SOURCES);
+  const settled = await Promise.allSettled(keys.map(fetchSource));
 
-    await loadData();
-    setSyncing(false);
-    render();
-    toast(fromLogin ? "You're all set. Data is up to date." : "Synced with ETLab", { icon: "check" });
-  } catch (error) {
-    state.lastSyncError = error instanceof TypeError ? "Can't reach the Better ETLab server." : error.message;
-    setSyncing(false);
-    render();
-    toast(state.lastSyncError, { icon: "alert", tone: "danger" });
+  const signedOut = settled.find((r) => r.status === "rejected" && r.reason?.signedOut);
+  if (signedOut) {
+    rememberSignedIn(false);
+    window.location.replace(signedOut.reason.expired ? "/login?expired=1" : "/login");
+    return;
   }
+
+  const cached = readCache();
+  const failed = [];
+  settled.forEach((result, index) => {
+    if (result.status === "fulfilled") cached[keys[index]] = result.value;
+    else failed.push(keys[index]);
+  });
+
+  if (failed.length < keys.length) {
+    cached.savedAt = Date.now();
+    writeStorage(DATA_KEY, cached);
+  }
+  applyData(cached);
+  setSyncing(false);
+  render();
+
+  if (!failed.length) {
+    if (!quiet) toast(fromLogin ? "You're all set. Data is up to date." : "Synced with ETLab", { icon: "check" });
+    return;
+  }
+
+  const reason = settled.find((r) => r.status === "rejected").reason;
+  state.lastSyncError =
+    reason instanceof TypeError
+      ? "Can't reach Better ETLab. Check your connection."
+      : failed.length === keys.length
+        ? reason.message
+        : `Couldn't refresh ${failed.map((k) => SOURCE_LABELS[k]).join(" and ")}. ${reason.message}`;
+  toast(state.lastSyncError, { icon: "alert", tone: "danger", duration: 6000 });
 }
 
 /* ---------------------------------------------------------------------------
@@ -1390,7 +1424,7 @@ function setting(title, hint, control) {
 
 function renderSettings() {
   const info = student();
-  const status = state.data.status || {};
+  const username = state.session?.username || "";
   const fullName = titleCase(info.name || "");
   const initials = fullName
     .split(" ")
@@ -1399,7 +1433,6 @@ function renderSettings() {
     .join("");
   const synced = lastSynced();
   const standalone = isStandaloneApp();
-  const files = Object.entries(status.files || {});
 
   return `
     ${pageHead("Settings")}
@@ -1407,8 +1440,8 @@ function renderSettings() {
       <section class="card profile">
         <span class="avatar display">${escapeHtml(initials || "?")}</span>
         <div class="profile-text">
-          <p class="profile-name">${escapeHtml(fullName || status.username || "ETLab student")}</p>
-          <p class="profile-meta">${[status.username, info.universityRegisterNumber].filter(Boolean).map(escapeHtml).join(" · ")}</p>
+          <p class="profile-name">${escapeHtml(fullName || username || "ETLab student")}</p>
+          <p class="profile-meta">${[username, info.universityRegisterNumber].filter(Boolean).map(escapeHtml).join(" · ")}</p>
         </div>
         <span class="live"><i></i>Connected</span>
       </section>
@@ -1421,14 +1454,11 @@ function renderSettings() {
             synced ? `${formatDayMonth.format(synced)}, ${formatTime.format(synced)}` : "Never",
             `<button class="btn btn-ghost btn-sm" type="button" data-action="sync" ${state.syncing ? "disabled" : ""}>${icon("sync", 16)} Sync now</button>`,
           )}
-          ${
-            state.syncLog
-              ? `<details class="disclosure">
-                  <summary>Last sync log ${icon("chevron", 16)}</summary>
-                  <pre class="log">${escapeHtml(state.syncLog)}</pre>
-                </details>`
-              : ""
-          }
+          ${setting(
+            "Stored on this device",
+            "Your ETLab data is cached here only. Logging out clears it.",
+            "",
+          )}
         </div>
       </section>
 
@@ -1486,25 +1516,6 @@ function renderSettings() {
               <button class="btn btn-ghost btn-sm" type="submit">Save cookie</button>
             </form>
           </details>
-          ${
-            files.length
-              ? `<details class="disclosure">
-                  <summary>Data files ${icon("chevron", 16)}</summary>
-                  <ul class="files">
-                    ${files
-                      .map(
-                        ([fileName, file]) => `
-                          <li>
-                            <span class="mono">${escapeHtml(fileName)}</span>
-                            <span>${file.exists ? `${file.count} · ${escapeHtml(relativeTime(new Date(file.updatedAt)))}` : "missing"}</span>
-                          </li>
-                        `,
-                      )
-                      .join("")}
-                  </ul>
-                </details>`
-              : ""
-          }
         </div>
       </section>
 
@@ -1765,6 +1776,7 @@ const ACTIONS = {
     try {
       const response = await fetch("/api/logout", { method: "POST" });
       if (!response.ok) throw new Error("Logout failed");
+      clearCachedData();
       rememberSignedIn(false);
       window.location.replace("/");
     } catch (error) {
@@ -1830,9 +1842,10 @@ document.addEventListener("submit", async (event) => {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Couldn't save the cookie");
-      toast("Cookie saved. Syncing…", { icon: "check" });
+      clearCachedData();
       await loadData();
       render();
+      toast("Session saved. Syncing…", { icon: "check" });
       runSync();
     } catch (error) {
       button.disabled = false;
@@ -1919,18 +1932,24 @@ scheduleAutoInstallPrompt();
 setInterval(updateSyncStatus, 60 * 1000);
 
 const session = await getSession();
-if (!session.loggedIn) {
+await loadData();
+
+// Offline (e.g. installed app with no signal): still show the cached copy.
+const canShowOffline = session.offline && hasData();
+
+if (!session.loggedIn && !canShowOffline) {
   window.location.replace(session.expired ? "/login?expired=1" : "/login");
 } else {
   state.session = session;
   const params = new URLSearchParams(window.location.search);
-  const shouldSync = params.get("sync") === "1";
+  const fromLogin = params.get("sync") === "1";
   if (params.has("sync")) setHash(window.location.hash);
 
-  await loadData();
   route();
   revealPage();
   shell.classList.add("is-ready");
 
-  if (shouldSync) runSync({ fromLogin: true });
+  if (session.loggedIn && (fromLogin || !hasData())) runSync({ fromLogin: true });
+  else if (session.loggedIn && isStale()) runSync({ quiet: true });
+  else if (canShowOffline) toast("You're offline. Showing your last synced data.", { duration: 5000 });
 }

@@ -1,427 +1,111 @@
+"""Run Better ETLab locally (PC + phone on the same Wi-Fi).
+
+Same API as the Vercel deployment (see etlab/api.py), plus the static files.
+Each browser gets its own sealed session cookie; nothing is written to disk
+except a generated .session-secret for local development.
+"""
+
 import json
 import mimetypes
 import os
-import subprocess
-import sys
-from datetime import datetime
-from http import HTTPStatus
+import socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from etlab_auth import (
-    EtlabAuthError,
-    clear_session,
-    load_session_meta,
-    login as etlab_login,
-    save_session,
-    verify_session,
-)
-from paths import ROOT, SCRAPE_DIR
+from etlab.api import MAX_BODY, handle
 
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8000"))
+ROOT = Path(__file__).resolve().parent
 
-API_FILES = {
-    "/api/materials": "materials.json",
-    "/api/attendance/subject": "attendance-subject.json",
-    "/api/attendance/month": "attendance-month.json",
-    "/api/attendance/day-details": "attendance-day-details.json",
-    "/api/attendance/with-duty-leave": "attendance-with-duty-leave.json",
-    "/api/attendance/credit": "credit-based-attendance.json",
-    "/api/results": "results.json",
-}
-
-STATIC_FILES = {
-    "/": "index.html",
-    "/index.html": "index.html",
-    "/login": "login.html",
-    "/login/": "login.html",
-    "/login.html": "login.html",
-    "/app": "app.html",
-    "/app/": "app.html",
-    "/app.html": "app.html",
-    "/app.js": "app.js",
-    "/auth.js": "auth.js",
-    "/landing.js": "landing.js",
-    "/login.js": "login.js",
-    "/base.css": "base.css",
-    "/public.css": "public.css",
-    "/app.css": "app.css",
-    "/ui.js": "ui.js",
-    "/manifest.webmanifest": "manifest.webmanifest",
-    "/sw.js": "sw.js",
-    "/icon.svg": "icon.svg",
-    "/icon-192.png": "icon-192.png",
-    "/icon-512.png": "icon-512.png",
-}
+PAGES = {"/": "index.html", "/login": "login.html", "/app": "app.html"}
+STATIC_TYPES = {".html", ".css", ".js", ".svg", ".png", ".webmanifest"}
 
 
-def read_json_file(file_name):
-    path = SCRAPE_DIR / file_name
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
+def load_vercel_headers():
+    """Send the same security headers locally as vercel.json does in production."""
+    try:
+        config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    rules = {}
+    for rule in config.get("headers", []):
+        source = {"/(.*)": "*"}.get(rule["source"], rule["source"])
+        rules.setdefault(source, []).extend((h["key"], h["value"]) for h in rule["headers"])
+    return rules
 
 
-def file_updated_at(file_name):
-    path = SCRAPE_DIR / file_name
-    if not path.exists():
-        return None
-    return datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds")
-
-
-def count_records(data):
-    if data is None:
-        return 0
-    if isinstance(data, list):
-        return len(data)
-    if isinstance(data, dict):
-        if "subjects" in data:
-            return len(data["subjects"])
-        if "days" in data:
-            return len(data["days"])
-        if "universityResult" in data:
-            assessments = data.get("assessmentResults", {})
-            assessment_count = sum(
-                len(section.get("items", [])) for section in assessments.values()
-            )
-            return assessment_count + len(data.get("universityResult", []))
-    return 1
-
-
-def load_cookie():
-    env_cookie = os.environ.get("ETLAB_COOKIE")
-    if env_cookie:
-        return env_cookie, "environment"
-
-    env_path = ROOT / ".env"
-    if not env_path.exists():
-        return None, None
-
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-
-        key, value = line.split("=", 1)
-        if key.strip() != "ETLAB_COOKIE":
-            continue
-
-        return value.strip().strip("'").strip('"'), ".env"
-
-    return None, None
-
-
-def build_status(verify=False):
-    cookie, cookie_source = load_cookie()
-    session = load_session_meta() or {}
-    files = {}
-
-    for endpoint, file_name in API_FILES.items():
-        data = read_json_file(file_name)
-        files[file_name] = {
-            "endpoint": endpoint,
-            "exists": data is not None,
-            "count": count_records(data),
-            "updatedAt": file_updated_at(file_name),
-        }
-
-    status = {
-        "ok": True,
-        "hasCookie": bool(cookie),
-        "cookieSource": cookie_source,
-        "username": session.get("username"),
-        "loggedInAt": session.get("loggedInAt"),
-        "sessionSource": session.get("source"),
-        "files": files,
-    }
-
-    if verify and cookie:
-        status["sessionValid"] = verify_session(cookie).get("loggedIn", False)
-    elif "sessionValid" in session:
-        status["sessionValid"] = bool(session.get("sessionValid"))
-
-    return status
-
-
-def read_json_body(handler):
-    content_length = int(handler.headers.get("Content-Length", "0"))
-    raw_body = handler.rfile.read(content_length).decode("utf-8") if content_length else "{}"
-    return json.loads(raw_body)
+HEADER_RULES = load_vercel_headers()
 
 
 class BetterEtlabHandler(BaseHTTPRequestHandler):
-    server_version = "BetterETLab/0.2"
-
     def do_GET(self):
-        parsed = urlparse(self.path)
-        path = parsed.path
-
-        if path == "/api/health":
-            cookie, cookie_source = load_cookie()
-            self.write_json(
-                {
-                    "ok": True,
-                    "hasCookie": bool(cookie),
-                    "cookieSource": cookie_source,
-                }
-            )
-            return
-
-        if path == "/api/status":
-            query = parsed.query
-            verify = "verify=1" in query or "verify=true" in query
-            self.write_json(build_status(verify=verify))
-            return
-
-        if path == "/api/me":
-            self.handle_me()
-            return
-
-        if path in API_FILES:
-            data = read_json_file(API_FILES[path])
-            if data is None:
-                self.write_json(
-                    {"error": f"{API_FILES[path]} not generated yet"},
-                    status=HTTPStatus.NOT_FOUND,
-                )
-                return
-            self.write_json(data)
-            return
-
-        self.serve_static(path)
+        self._route("GET")
 
     def do_POST(self):
-        parsed = urlparse(self.path)
-        path = parsed.path
+        self._route("POST")
 
-        if path == "/api/login":
-            self.handle_login()
-            return
+    def _route(self, method):
+        path = urlparse(self.path).path
+        if path.startswith("/api/"):
+            length = int(self.headers.get("content-length") or 0)
+            body = self.rfile.read(min(length, MAX_BODY + 1)) if length else b""
+            response = handle(method, path, self.headers, body)
+            self._send(response.status, response.body, response.headers)
+        elif method == "GET":
+            self._serve_static(path)
+        else:
+            self._send(405, b"Method not allowed", [("Content-Type", "text/plain")])
 
-        if path == "/api/logout":
-            self.handle_logout()
-            return
-
-        if path == "/api/cookie":
-            self.handle_save_cookie()
-            return
-
-        if path == "/api/sync":
-            self.handle_sync()
-            return
-
-        self.write_json({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
-
-    def handle_login(self):
-        try:
-            body = read_json_body(self)
-            result = etlab_login(body.get("username", ""), body.get("password", ""))
-        except json.JSONDecodeError:
-            self.write_json({"error": "Invalid JSON body"}, status=HTTPStatus.BAD_REQUEST)
-            return
-        except EtlabAuthError as error:
-            self.write_json({"error": str(error)}, status=HTTPStatus.UNAUTHORIZED)
-            return
-
-        status = build_status()
-        status["login"] = {
-            "ok": True,
-            "username": result["username"],
-        }
-        self.write_json(status)
-
-    def handle_logout(self):
-        clear_session()
-        self.write_json(
-            {
-                "ok": True,
-                "hasCookie": False,
-                "message": "Logged out. Local session cookie cleared.",
-            }
-        )
-
-    def handle_me(self):
-        cookie, cookie_source = load_cookie()
-        session = load_session_meta() or {}
-        verification = verify_session(cookie) if cookie else {"ok": False, "loggedIn": False}
-        self.write_json(
-            {
-                "ok": True,
-                "hasCookie": bool(cookie),
-                "cookieSource": cookie_source,
-                "username": session.get("username"),
-                "loggedInAt": session.get("loggedInAt"),
-                "sessionSource": session.get("source"),
-                "sessionValid": verification.get("loggedIn", False),
-            }
-        )
-
-    def handle_save_cookie(self):
-        try:
-            body = read_json_body(self)
-            cookie = str(body.get("cookie", ""))
-            save_session(body.get("username") or "manual", cookie, source="manual-cookie")
-        except json.JSONDecodeError:
-            self.write_json({"error": "Invalid JSON body"}, status=HTTPStatus.BAD_REQUEST)
-            return
-        except EtlabAuthError as error:
-            self.write_json({"error": str(error)}, status=HTTPStatus.BAD_REQUEST)
-            return
-
-        self.write_json(build_status())
-
-    def handle_sync(self):
-        cookie, cookie_source = load_cookie()
-        if not cookie:
-            self.write_json(
-                {"error": "Please login first. No ETLab session cookie found."},
-                status=HTTPStatus.BAD_REQUEST,
-            )
-            return
-
-        verification = verify_session(cookie)
-        if not verification.get("loggedIn"):
-            clear_session()
-            self.write_json(
-                {
-                    "error": "Session expired. Please login again.",
-                    "sessionValid": False,
-                },
-                status=HTTPStatus.UNAUTHORIZED,
-            )
-            return
-
-        try:
-            body = {}
-            content_length = int(self.headers.get("Content-Length", "0"))
-            if content_length:
-                body = read_json_body(self)
-        except json.JSONDecodeError:
-            body = {}
-
-        force_refresh = bool(body.get("forceRefresh"))
-
-        try:
-            child_env = {
-                **os.environ,
-                "ETLAB_COOKIE": cookie,
-                "ETLAB_FORCE_REFRESH": "1" if force_refresh else "0",
-            }
-            result = subprocess.run(
-                [sys.executable, "fetch_etlab.py"],
-                cwd=ROOT,
-                env=child_env,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.CalledProcessError as error:
-            combined = f"{error.stdout or ''}\n{error.stderr or ''}".lower()
-            if "login" in combined and ("required" in combined or "user/login" in combined):
-                clear_session()
-                self.write_json(
-                    {
-                        "error": "Session expired during sync. Please login again.",
-                        "stdout": error.stdout,
-                        "stderr": error.stderr,
-                        "sessionValid": False,
-                    },
-                    status=HTTPStatus.UNAUTHORIZED,
-                )
-                return
-
-            self.write_json(
-                {
-                    "error": "Sync failed",
-                    "stdout": error.stdout,
-                    "stderr": error.stderr,
-                },
-                status=HTTPStatus.INTERNAL_SERVER_ERROR,
-            )
-            return
-
-        self.write_json(
-            {
-                "ok": True,
-                "cookieSource": cookie_source,
-                "forceRefresh": force_refresh,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-            }
-        )
-
-    def serve_static(self, path):
-        if path not in STATIC_FILES:
-            self.write_json({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
-            return
-
-        file_path = ROOT / STATIC_FILES[path]
-        if not file_path.exists():
-            self.write_json({"error": "File not found"}, status=HTTPStatus.NOT_FOUND)
+    def _serve_static(self, path):
+        name = PAGES.get(path.rstrip("/") or "/", path.lstrip("/"))
+        file_path = (ROOT / name).resolve()
+        # Only top-level front-end files, never Python, dotfiles or folders.
+        if file_path.parent != ROOT or file_path.suffix not in STATIC_TYPES or not file_path.is_file():
+            self._send(404, b"Not found", [("Content-Type", "text/plain")])
             return
 
         content_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
         if file_path.suffix == ".webmanifest":
             content_type = "application/manifest+json"
+        self._send(200, file_path.read_bytes(), [("Content-Type", content_type), ("Cache-Control", "no-cache")])
 
-        content = file_path.read_bytes()
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(content)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(content)
-
-    def write_json(self, data, status=HTTPStatus.OK):
-        content = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+    def _send(self, status, body, headers):
         self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(content)))
-        self.send_header("Cache-Control", "no-store")
+        path = urlparse(self.path).path
+        overrides = HEADER_RULES.get("*", []) + HEADER_RULES.get(path, [])
+        names = {name.lower() for name, _ in overrides}
+        for name, value in [h for h in headers if h[0].lower() not in names] + overrides:
+            self.send_header(name, value)
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(content)
+        self.wfile.write(body)
 
     def log_message(self, format, *args):
-        print(f"{self.address_string()} - {unquote(format % args)}")
+        # Method + path only; never bodies or cookies.
+        print(f"{self.address_string()} {self.command} {unquote(urlparse(self.path).path)}")
 
 
-def local_lan_ips():
-    import socket
-
+def lan_ips():
     ips = []
     try:
-        hostname = socket.gethostname()
-        for info in socket.getaddrinfo(hostname, None, family=socket.AF_INET):
+        for info in socket.getaddrinfo(socket.gethostname(), None, family=socket.AF_INET):
             ip = info[4][0]
-            if ip.startswith("127."):
-                continue
-            if ip not in ips:
+            if not ip.startswith("127.") and ip not in ips:
                 ips.append(ip)
     except OSError:
         pass
-
-    if not ips:
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.connect(("8.8.8.8", 80))
-            ip = sock.getsockname()[0]
-            sock.close()
-            if not ip.startswith("127."):
-                ips.append(ip)
-        except OSError:
-            pass
-
     return ips
 
 
 def main():
     server = ThreadingHTTPServer((HOST, PORT), BetterEtlabHandler)
-    print(f"Better ETLab backend running on {HOST}:{PORT}")
+    print(f"Better ETLab running on {HOST}:{PORT}")
     print(f"Local:  http://127.0.0.1:{PORT}/")
-    for ip in local_lan_ips():
+    for ip in lan_ips():
         print(f"Phone:  http://{ip}:{PORT}/")
-    print("Same Wi-Fi required. Allow Python through Windows Firewall if phone cannot connect.")
+    print("Same Wi-Fi required. Allow Python through Windows Firewall if the phone can't connect.")
     print("Press Ctrl+C to stop.")
     server.serve_forever()
 

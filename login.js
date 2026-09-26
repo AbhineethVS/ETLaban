@@ -1,4 +1,4 @@
-import { getSession, registerServiceWorker, rememberSignedIn } from "./auth.js";
+import { clearCachedData, getSession, registerServiceWorker, rememberSignedIn } from "./auth.js";
 import { initPublicUi, revealPage } from "./ui.js";
 
 registerServiceWorker();
@@ -106,6 +106,8 @@ form.addEventListener("submit", async (event) => {
       throw new Error(result.error || "Login failed. Check your details and try again.");
     }
 
+    // A new login may be a different student on this device.
+    clearCachedData();
     rememberSignedIn(true);
     setBusy("done");
     setTimeout(() => window.location.replace("/app?sync=1"), 450);

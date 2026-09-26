@@ -1,58 +1,60 @@
 # Better ETLab
 
-A cleaner PWA dashboard for ETLab student data.
+A calm, fast, installable app for CET students' ETLab data: attendance (with a
+month calendar and "can I miss this class?" maths), results for every semester,
+and study materials. Unofficial; it reads the same pages you see on ETLab.
 
-## Current Status
+## How it works
 
-This is an early prototype. Backend mode is preferred:
+- You log in with your normal ETLab username and password. The password is sent
+  to ETLab once and never stored.
+- The ETLab session cookie is encrypted with the server's `SESSION_SECRET` and
+  kept only in your browser, as an `HttpOnly` cookie. The server keeps no
+  sessions, no database and no copies of anyone's data.
+- Each sync fetches your pages from ETLab and turns them into JSON on the fly.
+  The result is cached on your device so the app opens instantly (and offline),
+  and is cleared when you log out.
 
-- Login with ETLab username/password
-- Sync attendance, results, and materials
-- Serve a local PWA dashboard on PC and phone (same Wi-Fi)
+```text
+browser ── /api/* ──> Python function (etlab/) ──> cet.etlab.in
+   └─ caches data locally           └─ stateless: session comes from the request cookie
+```
 
-The backend logs into ETLab, stores only the session cookie locally (never in git), then scrapes the pages into JSON for the app.
+## Deploy on Vercel
 
-## Local Run
+1. Import this GitHub repo in Vercel (framework preset: **Other**, no build command).
+2. Add an environment variable **`SESSION_SECRET`**: a long random string, e.g.
+   `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+   Changing it later logs everyone out.
+3. Deploy. `vercel.json` sets up the `/api` function (Mumbai region), clean URLs
+   and security headers.
+
+## Run locally (PC + phone on the same Wi-Fi)
 
 ```bash
+pip install -r requirements.txt
 python backend_server.py
 ```
 
-On this PC:
-
-```text
-http://127.0.0.1:8000/
-```
-
-On your phone (same Wi-Fi), use the Phone URL printed by the server, for example:
-
-```text
-http://192.168.x.x:8000/
-```
-
-Then:
-
-1. Open that URL in Chrome/Safari
-2. Log in with your ETLab username and password
-3. Wait for the first sync on the dashboard
-4. Install as app / Add to Home Screen if you want
-
-If the phone cannot connect, allow Python through Windows Firewall for private networks.
+Open `http://127.0.0.1:8000/`, or the Phone URL it prints. A local
+`.session-secret` is generated automatically. If the phone can't connect, allow
+Python through Windows Firewall for private networks.
 
 ## API
 
 ```text
-POST /api/login
-POST /api/logout
-GET  /api/me
-GET  /api/status
-POST /api/sync
-POST /api/cookie   # advanced fallback
+POST /api/login        {username, password}   sets the session cookie
+POST /api/cookie       {cookie}               same, from a pasted ETLab cookie
+POST /api/logout                              clears it
+GET  /api/me                                  {loggedIn, username}
+GET  /api/attendance   subject totals, month calendar, per-period day details
+GET  /api/results      every semester so far: marks, grades, SGPA, CGPA
+GET  /api/materials    notes and files
 ```
 
-## Notes
+## Layout
 
-- `.env` and `session.json` are gitignored
-- passwords are not stored; only the session cookie is kept locally
-- generated scrape dumps live in `scrape/` (HTML + JSON) and are gitignored
-- phone access requires the PC backend to keep running on the same Wi-Fi
+- `index.html`, `login.html`, `app.html` + `base.css` / `public.css` / `app.css`: the front end
+- `app.js`, `landing.js`, `login.js`, `auth.js`, `ui.js`, `theme-init.js`, `sw.js`: front-end logic and PWA
+- `etlab/`: login, fetching and parsing (shared by both servers)
+- `api/index.py`: the Vercel function; `backend_server.py`: the local server
