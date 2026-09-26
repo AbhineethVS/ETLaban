@@ -1,4 +1,4 @@
-const CACHE_NAME = "better-etlab-v5";
+const CACHE_NAME = "better-etlab-v6";
 const APP_SHELL = [
   "./",
   "./index.html",

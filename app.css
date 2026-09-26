@@ -1333,6 +1333,207 @@ button.subject-head {
   color: var(--faint);
 }
 
+/* Semester picker: SGPA per semester as columns on a 0-10 scale. */
+.sem-chart {
+  margin-bottom: 30px;
+  padding: 18px 14px 10px;
+}
+
+.sem-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 6px 6px;
+}
+
+.sem-cols {
+  display: grid;
+  grid-template-columns: repeat(var(--count), minmax(0, 1fr));
+}
+
+.sem-col {
+  display: grid;
+  grid-template-rows: 120px auto;
+  justify-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 0 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.sem-col:disabled {
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .sem-col:not(:disabled):hover {
+    background: var(--hover);
+  }
+
+  .sem-col:not(:disabled):hover .sem-fill {
+    background: color-mix(in srgb, var(--text) 40%, transparent);
+  }
+
+  .sem-col[aria-checked="true"]:hover .sem-fill {
+    background: var(--brand);
+  }
+}
+
+.sem-col:focus-visible {
+  outline-offset: -2px;
+}
+
+.sem-track {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding-top: 24px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.sem-value {
+  padding-bottom: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sem-col[aria-checked="true"] .sem-value {
+  color: var(--text);
+}
+
+.sem-fill {
+  width: min(24px, 62%);
+  height: calc(var(--h) * 100%);
+  border-radius: 4px 4px 0 0;
+  background: color-mix(in srgb, var(--text) 24%, transparent);
+  transform-origin: bottom;
+  transition: background-color 0.3s ease;
+}
+
+.sem-col[aria-checked="true"] .sem-fill {
+  background: var(--brand);
+}
+
+.sem-stub {
+  width: 5px;
+  height: 5px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: var(--faint);
+  opacity: 0.6;
+}
+
+/* The current semester has no SGPA yet: a short hatched stub. */
+.sem-col[data-state="current"] .sem-stub {
+  width: min(24px, 62%);
+  height: 12px;
+  margin: 0;
+  border-radius: 4px 4px 0 0;
+  background: repeating-linear-gradient(135deg, var(--faint) 0 1.5px, transparent 1.5px 5px);
+  opacity: 1;
+}
+
+.sem-col[data-state="current"][aria-checked="true"] .sem-stub {
+  background: repeating-linear-gradient(135deg, var(--brand) 0 1.5px, transparent 1.5px 5px);
+}
+
+.sem-label {
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+
+.sem-col[aria-checked="true"] .sem-label {
+  color: var(--text);
+}
+
+.sem-col[data-state="upcoming"] .sem-label {
+  opacity: 0.55;
+}
+
+.view-enter .sem-fill {
+  animation: sem-grow 1s var(--ease-out) both 0.25s;
+}
+
+@keyframes sem-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.sem-title {
+  margin-bottom: 14px;
+  font-size: clamp(2rem, 8vw, 2.6rem);
+}
+
+.sem-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 16px 20px;
+}
+
+.sem-summary dt {
+  color: var(--faint);
+  font-size: 0.72rem;
+}
+
+.sem-summary dd {
+  margin: 2px 0 0;
+  font-family: var(--font-serif);
+  font-size: 1.65rem;
+  line-height: 1.1;
+}
+
+.sem-summary dd span {
+  color: var(--faint);
+  font-size: 0.6em;
+}
+
+.sem-summary .sem-status {
+  padding-top: 0.4em;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.sem-status[data-tone="risk"] {
+  color: var(--danger);
+}
+
+.sem-body .results-grid {
+  margin-top: 30px;
+}
+
+.course-history {
+  color: var(--faint);
+  font-size: 0.74rem;
+}
+
+.course-flag {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.course[data-tone="risk"] .course-grade {
+  color: var(--danger);
+}
+
 /* --- Materials ------------------------------------------------------------ */
 
 .filters {

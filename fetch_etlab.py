@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse, parse_qs
 from urllib.request import Request, urlopen
 
+from parse_results import selected_semester
 from paths import scrape_path
 
 
@@ -138,8 +139,19 @@ def fetch_attendance(cookie: str):
 
 
 def fetch_results(cookie: str):
+    # The default page is the current semester; earlier semesters are the same
+    # page with ?sem_position=N.
     results_url = urljoin(BASE_URL, "/student/results")
-    save_html(results_url, scrape_path("results.html"), cookie)
+    html = save_html(results_url, scrape_path("results.html"), cookie)
+
+    current = selected_semester(html)
+    if not current:
+        return
+
+    semester_url = urljoin(BASE_URL, "/ktuacademics/student/results")
+    for number in range(1, current):
+        save_html(f"{semester_url}?sem_position={number}", scrape_path(f"results-sem-{number}.html"), cookie)
+        time.sleep(0.3)
 
 
 def run_parser(command):

@@ -129,9 +129,11 @@ function plural(count, word, pluralWord = `${word}s`) {
 const SMALL_WORDS = new Set(["a", "an", "and", "for", "in", "of", "on", "the", "to", "with"]);
 
 function titleCase(text) {
-  return String(text || "")
+  const raw = String(text || "").replace(/\s*-\s*(\d+)$/, " $1");
+  // Mixed-case names from ETLab ("IT Workshop") are already right.
+  if (/[a-z]/.test(raw)) return raw.trim();
+  return raw
     .toLowerCase()
-    .replace(/-(\d+)$/, " $1")
     .split(/\s+/)
     .filter(Boolean)
     .map((word, index) => {
@@ -365,8 +367,8 @@ function defaultSelectedDay() {
   return (past.at(-1) || model.classDays.at(-1) || model.days[0]).date;
 }
 
-function assessmentItems() {
-  const sections = state.data.results?.assessmentResults || {};
+function assessmentItems(semester = state.data.results) {
+  const sections = semester?.assessmentResults || {};
   return Object.entries(sections)
     .filter(([, section]) => section.items?.length)
     .map(([key, section]) => ({
@@ -374,16 +376,17 @@ function assessmentItems() {
       label: section.label,
       items: section.items.map((item) => {
         const { code, name } = parseSubject(item.subject);
-        const max = Number(item.maximumMarks);
-        const got = Number(item.marksObtained);
-        const numeric = item.marksObtained !== "" && Number.isFinite(got) && max > 0;
-        const raw = String(item.marksObtained || "").toLowerCase();
+        const obtained = item.obtained ?? item.marksObtained ?? "";
+        const max = Number(item.max ?? item.maximumMarks);
+        const got = Number(obtained);
+        const numeric = obtained !== "" && Number.isFinite(got) && max > 0;
+        const raw = String(obtained).toLowerCase();
         const status = numeric ? "scored" : raw.includes("not submitted") ? "missing" : "pending";
         return {
           code,
           name,
           short: shortName(name),
-          title: item.exam || item.assignment || item.title || section.label,
+          title: item.title || item.exam || item.assignment || section.label,
           max,
           got,
           status,
@@ -433,6 +436,7 @@ function student() {
 }
 
 function semesterLabel() {
+  if (state.data.results?.currentSemester) return `Semester ${state.data.results.currentSemester}`;
   const raw =
     state.data.results?.assessmentResults?.sessionalExams?.items?.[0]?.semester ||
     state.data.materials?.[0]?.semester ||
@@ -1016,70 +1020,182 @@ function scoreRow(item) {
     : `<li class="score" data-tone="${tone}"><div class="score-head">${body}</div></li>`;
 }
 
-function renderResults() {
+function semesters() {
   const results = state.data.results;
-  const kicker = semesterLabel();
-  if (!results) {
-    return `${pageHead("Results", kicker)}${state.syncing ? firstSyncState() : emptyState({ title: "No results <em>yet.</em>", text: "Sync with ETLab to see your marks." })}`;
+  if (!results) return [];
+  if (results.semesters?.length) return results.semesters;
+  // Older results.json without per-semester data: treat it as the current one.
+  const number = Number(semesterLabel().match(/\d+/)?.[0]) || 1;
+  return [
+    {
+      number,
+      current: true,
+      assessmentResults: results.assessmentResults,
+      universityResult: results.universityResult,
+      summary: {},
+    },
+  ];
+}
+
+function selectedSemester() {
+  const list = semesters();
+  const wanted = Number(state.sub);
+  return list.find((s) => s.number === wanted) || list.find((s) => s.current) || list.at(-1);
+}
+
+function semesterCount(list) {
+  return Math.max(state.data.results?.semesterCount || 8, ...list.map((s) => s.number));
+}
+
+// SGPA per semester as a small column chart that doubles as the semester picker.
+function semesterChart(list, selected) {
+  const count = semesterCount(list);
+  const byNumber = new Map(list.map((s) => [s.number, s]));
+  const columns = Array.from({ length: count }, (_, index) => {
+    const number = index + 1;
+    const semester = byNumber.get(number);
+    const sgpa = Number(semester?.summary?.sgpa);
+    const hasSgpa = Boolean(semester) && Number.isFinite(sgpa) && sgpa > 0;
+    const kind = !semester ? "upcoming" : semester.current ? "current" : "done";
+    const label = !semester
+      ? `Semester ${number}, not started`
+      : `Semester ${number}${hasSgpa ? `, SGPA ${sgpa.toFixed(2)}` : semester.current ? ", in progress" : ""}`;
+    return `
+      <button class="sem-col" type="button" role="radio" data-action="semester" data-value="${number}" data-state="${kind}"
+        aria-checked="${semester === selected}" aria-label="${label}" ${semester ? "" : "disabled"}
+        style="--h: ${hasSgpa ? (sgpa / 10).toFixed(3) : 0}">
+        <span class="sem-track">
+          <span class="sem-value">${hasSgpa ? sgpa.toFixed(2) : semester?.current ? "Now" : ""}</span>
+          ${hasSgpa ? '<span class="sem-fill"></span>' : '<span class="sem-stub"></span>'}
+        </span>
+        <span class="sem-label">S${number}</span>
+      </button>
+    `;
+  });
+
+  return `
+    <section class="card sem-chart">
+      <div class="sem-chart-head">
+        <h2 class="block-title">SGPA by semester</h2>
+        <p class="cal-meta">Out of 10</p>
+      </div>
+      <div class="sem-cols" role="radiogroup" aria-label="Semester" style="--count: ${count}">${columns.join("")}</div>
+    </section>
+  `;
+}
+
+function courseRow(course, semester) {
+  const { code, name } = parseSubject(course.subjectName);
+  const grade = course.grade && course.grade !== "-" ? course.grade : "";
+  const failed = course.result === "failed";
+  const credits = Number(course.totalCredits) || 0;
+  const internal =
+    course.internalMarks && course.internalMarks !== "-" ? ` · internal ${escapeHtml(course.internalMarks)}` : "";
+  const attempts = course.attempts || [];
+  const history =
+    new Set(attempts.map((a) => a.grade)).size > 1
+      ? `<span class="course-history">${attempts.map((a) => `${escapeHtml(a.exam)}: ${escapeHtml(a.grade)}`).join(" · ")}</span>`
+      : "";
+  const shown = grade || (failed && !semester.current ? "F" : "–");
+  return `
+    <li class="course" ${failed ? 'data-tone="risk"' : ""}>
+      <span class="course-text">
+        <span class="course-name">${escapeHtml(name)}</span>
+        <span class="course-meta"><span class="mono">${escapeHtml(course.subjectCode || code)}</span> · ${plural(credits, "credit")}${internal}${failed ? ` · <span class="course-flag">Not passed</span>` : ""}</span>
+        ${history}
+      </span>
+      <span class="course-grade" ${grade || failed ? "" : "data-empty"}>${escapeHtml(shown)}</span>
+    </li>
+  `;
+}
+
+function semesterSummary(semester) {
+  const summary = semester.summary || {};
+  const courses = semester.universityResult || [];
+  const credits = courses.reduce((sum, c) => sum + (Number(c.totalCredits) || 0), 0);
+  const scored = assessmentItems(semester)
+    .flatMap((section) => section.items)
+    .filter((item) => item.status === "scored");
+  const average = scored.length ? scored.reduce((sum, item) => sum + item.percent, 0) / scored.length : null;
+
+  if (semester.current) {
+    return `
+      <dl class="card sem-summary">
+        <div><dt>Status</dt><dd class="sem-status">In progress</dd></div>
+        <div><dt>Test average</dt><dd>${average === null ? "–" : `${Math.round(average)}<span>%</span>`}</dd></div>
+        <div><dt>Credits</dt><dd>${credits || "–"}</dd></div>
+      </dl>
+    `;
   }
 
-  const sections = assessmentItems();
-  const scored = sections.flatMap((s) => s.items).filter((i) => i.status === "scored");
-  const average = scored.length ? scored.reduce((sum, i) => sum + i.percent, 0) / scored.length : null;
-  const courses = results.universityResult || [];
-  const credits = courses.reduce((sum, c) => sum + (Number(c.totalCredits) || 0), 0);
+  const failed = summary.status === "failed";
+  const sgpa = Number(summary.sgpa);
+  return `
+    <dl class="card sem-summary">
+      <div><dt>SGPA</dt><dd>${Number.isFinite(sgpa) && sgpa > 0 ? sgpa.toFixed(2) : "–"}</dd></div>
+      <div><dt>Credits</dt><dd>${escapeHtml(summary.earnedCredits ?? "–")}<span>/${escapeHtml(summary.totalCredits ?? credits)}</span></dd></div>
+      <div><dt>Result</dt><dd class="sem-status" ${failed ? 'data-tone="risk"' : ""}>${failed ? "Backlog" : summary.status === "passed" ? "Passed" : "–"}</dd></div>
+    </dl>
+  `;
+}
+
+function semesterBody(semester) {
+  const sections = assessmentItems(semester);
+  const courses = semester.universityResult || [];
   const graded = courses.some((c) => c.grade && c.grade !== "-");
 
+  const coursesBlock = courses.length
+    ? `<section class="block">
+        ${blockHead(`${graded ? "Grades" : "Courses"} <span class="count">${courses.length}</span>`)}
+        <ul class="list card">${courses.map((c) => courseRow(c, semester)).join("")}</ul>
+        ${graded ? "" : `<p class="muted-note">Grades show up here once the university publishes them.</p>`}
+      </section>`
+    : "";
+
+  const assessmentBlocks = sections.length
+    ? sections
+        .map(
+          (section) => `
+            <section class="block">
+              ${blockHead(`${escapeHtml(section.label)} <span class="count">${section.items.length}</span>`)}
+              <ul class="list card">${section.items.map((item) => scoreRow(item)).join("")}</ul>
+            </section>
+          `,
+        )
+        .join("")
+    : `<p class="muted-note">No internal marks were published for this semester.</p>`;
+
+  // Finished semesters lead with grades; the current one leads with marks.
+  const [first, second] = semester.current ? [assessmentBlocks, coursesBlock] : [coursesBlock, assessmentBlocks];
+  return `
+    <h2 class="sem-title display">Semester ${semester.number}${semester.current ? " <em>now</em>" : ""}</h2>
+    ${semesterSummary(semester)}
+    <div class="results-grid">
+      <div class="results-col">${first}</div>
+      <div class="results-col">${second}</div>
+    </div>
+  `;
+}
+
+function renderResults() {
+  const results = state.data.results;
+  if (!results) {
+    return `${pageHead("Results", semesterLabel())}${state.syncing ? firstSyncState() : emptyState({ title: "No results <em>yet.</em>", text: "Sync with ETLab to see your marks." })}`;
+  }
+
+  const list = semesters();
+  const selected = selectedSemester();
+  const current = list.find((s) => s.current)?.number;
+  const cgpa = Number(results.cgpa);
   const aside =
-    average !== null
-      ? `<div class="att-summary"><span class="att-big">${Math.round(average)}<small>%</small></span><span class="att-sub">average<br />across ${plural(scored.length, "test")}</span></div>`
+    Number.isFinite(cgpa) && cgpa > 0
+      ? `<div class="att-summary"><span class="att-big">${cgpa.toFixed(2)}</span><span class="att-sub">CGPA<br />so far</span></div>`
       : "";
 
   return `
-    ${pageHead("Results", kicker, aside)}
-    <div class="results-grid">
-      <div class="results-col">
-        ${
-          sections.length
-            ? sections
-                .map(
-                  (section) => `
-                    <section class="block">
-                      ${blockHead(`${escapeHtml(section.label)} <span class="count">${section.items.length}</span>`)}
-                      <ul class="list card">${section.items.map((item) => scoreRow(item)).join("")}</ul>
-                    </section>
-                  `,
-                )
-                .join("")
-            : `<p class="muted-note">No marks have been published yet.</p>`
-        }
-      </div>
-      ${
-        courses.length
-          ? `<section class="block results-col">
-              ${blockHead(`Courses <span class="count">${credits} credits</span>`)}
-              <ul class="list card">
-                ${courses
-                  .map((course) => {
-                    const { code, name } = parseSubject(course.subjectName);
-                    const grade = course.grade && course.grade !== "-" ? course.grade : "";
-                    return `
-                      <li class="course">
-                        <span class="course-text">
-                          <span class="course-name">${escapeHtml(name)}</span>
-                          <span class="course-meta"><span class="mono">${escapeHtml(course.subjectCode || code)}</span> · ${plural(Number(course.totalCredits) || 0, "credit")}${course.internalMarks && course.internalMarks !== "-" ? ` · internal ${escapeHtml(course.internalMarks)}` : ""}</span>
-                        </span>
-                        <span class="course-grade" ${grade ? "" : "data-empty"}>${grade ? escapeHtml(grade) : "–"}</span>
-                      </li>
-                    `;
-                  })
-                  .join("")}
-              </ul>
-              ${graded ? "" : `<p class="muted-note">Grades show up here once the university publishes them.</p>`}
-            </section>`
-          : ""
-      }
-    </div>
+    ${pageHead("Results", current ? `Semester ${current} of ${semesterCount(list)}` : "", aside)}
+    ${semesterChart(list, selected)}
+    <div id="sem-body" class="panel sem-body">${semesterBody(selected)}</div>
   `;
 }
 
@@ -1572,6 +1688,13 @@ const ACTIONS = {
     else state.expanded.delete(code);
     row.dataset.open = String(open);
     button.setAttribute("aria-expanded", String(open));
+  },
+
+  semester: (button) => {
+    document.querySelectorAll(".sem-col").forEach((col) => col.setAttribute("aria-checked", String(col === button)));
+    state.sub = button.dataset.value;
+    setHash(`#results/${state.sub}`);
+    swapPanel("#sem-body", semesterBody(selectedSemester()));
   },
 
   "mat-tab": (button) => {

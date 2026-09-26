@@ -11,7 +11,7 @@ This is a student PWA used mostly on a phone. Desktop can look good, but mobile 
 ## Pages
 
 - Logged out: `/` landing and `/login`. No dashboard sidebar.
-- Logged in: `/app` with 5 hash-routed views: Home, Attendance (Subjects / Calendar), Results, Materials (ETLab / Saved links), Settings. Routes look like `#attendance/calendar/2026-09-09`.
+- Logged in: `/app` with 5 hash-routed views: Home, Attendance (Subjects / Calendar), Results, Materials (ETLab / Saved links), Settings. Routes look like `#attendance/calendar/2026-09-09`. Results has a per-semester picker (SGPA columns, `#results/2`); earlier semesters come from `results.json` → `semesters[]`.
 - Landing navbar is logo + Log in. Already signed in users skip landing and go to `/app`.
 - Settings is account/sync/install, not a login form.
 
