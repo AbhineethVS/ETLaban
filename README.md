@@ -11,6 +11,10 @@
 </p>
 
 <p align="center">
+  <a href="https://etlaban.vercel.app"><strong>Open ETLaban → etlaban.vercel.app</strong></a>
+</p>
+
+<p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-161512?style=flat-square" alt="MIT licence" /></a>
   <img src="https://img.shields.io/badge/installable-PWA-d4572a?style=flat-square" alt="Installable PWA" />
   <img src="https://img.shields.io/badge/python-3.10%2B-161512?style=flat-square" alt="Python 3.10+" />
@@ -77,7 +81,7 @@ Want the details? See [How it works](docs/how-it-works.md) and the [security pol
 
 ## Using it
 
-1. Open the app link in your phone's browser.
+1. Open **[etlaban.vercel.app](https://etlaban.vercel.app)** in your phone's browser.
 2. Log in with your normal ETLab username and password.
 3. Wait a few seconds for the first sync.
 4. Optional: tap **Install** (or your browser's *Add to Home screen*) to keep it
