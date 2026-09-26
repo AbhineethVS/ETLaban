@@ -424,11 +424,36 @@ function renderSettings() {
   return `
     <div class="grid cols-2">
       <section class="card">
+        <h2>ETLab Login</h2>
+        <p class="muted">Sign in with your normal ETLab username and password. The backend stores only the session cookie locally.</p>
+        ${
+          status?.username
+            ? `<div class="list-item">
+                <div>
+                  <strong>${escapeHtml(status.username)}</strong>
+                  <span class="muted">Logged in ${escapeHtml(status.loggedInAt || "")}</span>
+                </div>
+                <span class="pill good">Session</span>
+              </div>`
+            : ""
+        }
+        <form id="login-form" class="list">
+          <input class="search" name="username" placeholder="ETLab username" required />
+          <input class="search" name="password" type="password" placeholder="ETLab password" required />
+          <div class="toolbar">
+            <button class="button" type="submit">Login</button>
+            <button class="button secondary" type="button" id="logout-button">Logout</button>
+          </div>
+          ${state.settingsMessage ? `<p class="muted">${escapeHtml(state.settingsMessage)}</p>` : ""}
+        </form>
+      </section>
+
+      <section class="card">
         <h2>Sync Status</h2>
         <div class="list">
           <div class="list-item">
             <div>
-              <strong>ETLab Cookie</strong>
+              <strong>Session Cookie</strong>
               <span class="muted">${status?.cookieSource ? `Loaded from ${status.cookieSource}` : "Not detected"}</span>
             </div>
             <span class="pill ${status?.hasCookie ? "good" : "bad"}">${status?.hasCookie ? "Ready" : "Missing"}</span>
@@ -450,16 +475,6 @@ function renderSettings() {
               : ""
           }
         </div>
-      </section>
-
-      <section class="card">
-        <h2>Cookie Manager</h2>
-        <p class="muted">Paste the full ETLab <code>Cookie:</code> header value. It is saved only to your local ignored <code>.env</code> file.</p>
-        <form id="cookie-form" class="list">
-          <textarea id="cookie-input" class="textarea" name="cookie" rows="5" placeholder="YII_CSRF_TOKEN=...; style=theme-grey; CETSESSIONID=..." required></textarea>
-          <button class="button" type="submit">Save Cookie</button>
-          ${state.settingsMessage ? `<p class="muted">${escapeHtml(state.settingsMessage)}</p>` : ""}
-        </form>
       </section>
 
       <section class="card">
@@ -492,6 +507,15 @@ function renderSettings() {
             ? `<pre class="log-output">${escapeHtml(state.syncLog)}</pre>`
             : `<p class="muted">No sync log for this browser session yet.</p>`
         }
+      </section>
+
+      <section class="card">
+        <h2>Advanced: Manual Cookie</h2>
+        <p class="muted">Fallback only. Prefer Login above.</p>
+        <form id="cookie-form" class="list">
+          <textarea id="cookie-input" class="textarea" name="cookie" rows="4" placeholder="YII_CSRF_TOKEN=...; CETSESSIONID=..." required></textarea>
+          <button class="button secondary" type="submit">Save Cookie</button>
+        </form>
       </section>
     </div>
   `;
@@ -561,6 +585,56 @@ function attachViewHandlers() {
         await loadData();
       } catch (error) {
         state.settingsMessage = error.message || "Failed to save cookie";
+      }
+      render();
+    });
+  }
+
+  const loginForm = document.querySelector("#login-form");
+  if (loginForm) {
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(loginForm);
+      state.settingsMessage = "Logging in to ETLab...";
+      render();
+
+      try {
+        const response = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: formData.get("username"),
+            password: formData.get("password"),
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Login failed");
+        }
+        state.settingsMessage = `Logged in as ${result.login?.username || result.username || formData.get("username")}. You can Sync now.`;
+        await loadData();
+      } catch (error) {
+        state.settingsMessage = error.message || "Login failed";
+      }
+      render();
+    });
+  }
+
+  const logoutButton = document.querySelector("#logout-button");
+  if (logoutButton) {
+    logoutButton.addEventListener("click", async () => {
+      state.settingsMessage = "Logging out...";
+      render();
+      try {
+        const response = await fetch("/api/logout", { method: "POST" });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Logout failed");
+        }
+        state.settingsMessage = "Logged out. Local session cleared.";
+        await loadData();
+      } catch (error) {
+        state.settingsMessage = error.message || "Logout failed";
       }
       render();
     });

@@ -1,5 +1,7 @@
 .env
+session.json
 *.html
 !index.html
 *.json
+!manifest.webmanifest
 __pycache__/

@@ -9,6 +9,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from etlab_auth import (
+    EtlabAuthError,
+    clear_session,
+    load_session_meta,
+    login as etlab_login,
+    save_session,
+    verify_session,
+)
+
 
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
@@ -61,41 +70,11 @@ def count_records(data):
             return len(data["days"])
         if "universityResult" in data:
             assessments = data.get("assessmentResults", {})
-            assessment_count = sum(len(section.get("items", [])) for section in assessments.values())
+            assessment_count = sum(
+                len(section.get("items", [])) for section in assessments.values()
+            )
             return assessment_count + len(data.get("universityResult", []))
     return 1
-
-
-def build_status():
-    cookie, cookie_source = load_cookie()
-    files = {}
-
-    for endpoint, file_name in API_FILES.items():
-        data = read_json_file(file_name)
-        files[file_name] = {
-            "endpoint": endpoint,
-            "exists": data is not None,
-            "count": count_records(data),
-            "updatedAt": file_updated_at(file_name),
-        }
-
-    return {
-        "ok": True,
-        "hasCookie": bool(cookie),
-        "cookieSource": cookie_source,
-        "files": files,
-    }
-
-
-def save_cookie(cookie):
-    cookie = cookie.strip()
-    if cookie.lower().startswith("cookie:"):
-        cookie = cookie.split(":", 1)[1].strip()
-
-    if not cookie or "=" not in cookie:
-        raise ValueError("Cookie value is invalid")
-
-    (ROOT / ".env").write_text(f"ETLAB_COOKIE={cookie}\n", encoding="utf-8")
 
 
 def load_cookie():
@@ -121,8 +100,39 @@ def load_cookie():
     return None, None
 
 
+def build_status():
+    cookie, cookie_source = load_cookie()
+    session = load_session_meta() or {}
+    files = {}
+
+    for endpoint, file_name in API_FILES.items():
+        data = read_json_file(file_name)
+        files[file_name] = {
+            "endpoint": endpoint,
+            "exists": data is not None,
+            "count": count_records(data),
+            "updatedAt": file_updated_at(file_name),
+        }
+
+    return {
+        "ok": True,
+        "hasCookie": bool(cookie),
+        "cookieSource": cookie_source,
+        "username": session.get("username"),
+        "loggedInAt": session.get("loggedInAt"),
+        "sessionSource": session.get("source"),
+        "files": files,
+    }
+
+
+def read_json_body(handler):
+    content_length = int(handler.headers.get("Content-Length", "0"))
+    raw_body = handler.rfile.read(content_length).decode("utf-8") if content_length else "{}"
+    return json.loads(raw_body)
+
+
 class BetterEtlabHandler(BaseHTTPRequestHandler):
-    server_version = "BetterETLab/0.1"
+    server_version = "BetterETLab/0.2"
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -130,21 +140,30 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
 
         if path == "/api/health":
             cookie, cookie_source = load_cookie()
-            self.write_json({
-                "ok": True,
-                "hasCookie": bool(cookie),
-                "cookieSource": cookie_source,
-            })
+            self.write_json(
+                {
+                    "ok": True,
+                    "hasCookie": bool(cookie),
+                    "cookieSource": cookie_source,
+                }
+            )
             return
 
         if path == "/api/status":
             self.write_json(build_status())
             return
 
+        if path == "/api/me":
+            self.handle_me()
+            return
+
         if path in API_FILES:
             data = read_json_file(API_FILES[path])
             if data is None:
-                self.write_json({"error": f"{API_FILES[path]} not generated yet"}, status=HTTPStatus.NOT_FOUND)
+                self.write_json(
+                    {"error": f"{API_FILES[path]} not generated yet"},
+                    status=HTTPStatus.NOT_FOUND,
+                )
                 return
             self.write_json(data)
             return
@@ -153,18 +172,89 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path == "/api/cookie":
+        path = parsed.path
+
+        if path == "/api/login":
+            self.handle_login()
+            return
+
+        if path == "/api/logout":
+            self.handle_logout()
+            return
+
+        if path == "/api/cookie":
             self.handle_save_cookie()
             return
 
-        if parsed.path != "/api/sync":
-            self.write_json({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
+        if path == "/api/sync":
+            self.handle_sync()
             return
 
+        self.write_json({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
+
+    def handle_login(self):
+        try:
+            body = read_json_body(self)
+            result = etlab_login(body.get("username", ""), body.get("password", ""))
+        except json.JSONDecodeError:
+            self.write_json({"error": "Invalid JSON body"}, status=HTTPStatus.BAD_REQUEST)
+            return
+        except EtlabAuthError as error:
+            self.write_json({"error": str(error)}, status=HTTPStatus.UNAUTHORIZED)
+            return
+
+        status = build_status()
+        status["login"] = {
+            "ok": True,
+            "username": result["username"],
+        }
+        self.write_json(status)
+
+    def handle_logout(self):
+        clear_session()
+        self.write_json(
+            {
+                "ok": True,
+                "hasCookie": False,
+                "message": "Logged out. Local session cookie cleared.",
+            }
+        )
+
+    def handle_me(self):
+        cookie, cookie_source = load_cookie()
+        session = load_session_meta() or {}
+        verification = verify_session(cookie) if cookie else {"ok": False, "loggedIn": False}
+        self.write_json(
+            {
+                "ok": True,
+                "hasCookie": bool(cookie),
+                "cookieSource": cookie_source,
+                "username": session.get("username"),
+                "loggedInAt": session.get("loggedInAt"),
+                "sessionSource": session.get("source"),
+                "sessionValid": verification.get("loggedIn", False),
+            }
+        )
+
+    def handle_save_cookie(self):
+        try:
+            body = read_json_body(self)
+            cookie = str(body.get("cookie", ""))
+            save_session(body.get("username") or "manual", cookie, source="manual-cookie")
+        except json.JSONDecodeError:
+            self.write_json({"error": "Invalid JSON body"}, status=HTTPStatus.BAD_REQUEST)
+            return
+        except EtlabAuthError as error:
+            self.write_json({"error": str(error)}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        self.write_json(build_status())
+
+    def handle_sync(self):
         cookie, cookie_source = load_cookie()
         if not cookie:
             self.write_json(
-                {"error": "ETLAB_COOKIE is required before syncing"},
+                {"error": "Login or ETLAB_COOKIE is required before syncing"},
                 status=HTTPStatus.BAD_REQUEST,
             )
             return
@@ -193,25 +283,14 @@ class BetterEtlabHandler(BaseHTTPRequestHandler):
             )
             return
 
-        self.write_json({
-            "ok": True,
-            "cookieSource": cookie_source,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-        })
-
-    def handle_save_cookie(self):
-        content_length = int(self.headers.get("Content-Length", "0"))
-        raw_body = self.rfile.read(content_length).decode("utf-8") if content_length else "{}"
-
-        try:
-            body = json.loads(raw_body)
-            save_cookie(str(body.get("cookie", "")))
-        except (json.JSONDecodeError, ValueError) as error:
-            self.write_json({"error": str(error)}, status=HTTPStatus.BAD_REQUEST)
-            return
-
-        self.write_json(build_status())
+        self.write_json(
+            {
+                "ok": True,
+                "cookieSource": cookie_source,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            }
+        )
 
     def serve_static(self, path):
         if path not in STATIC_FILES:
