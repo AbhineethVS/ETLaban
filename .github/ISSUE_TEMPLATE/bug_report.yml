@@ -1,0 +1,72 @@
+name: Bug report
+description: Something is broken or shows the wrong thing.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Never paste your password, cookies, or real ETLab pages or data here.**
+        If you want to show an example, change the names and numbers first.
+        Found a security problem? Please [report it privately](https://github.com/AbhineethVS/better-etlab/security/advisories/new) instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Tell us what went wrong, in a few sentences.
+      placeholder: The calendar shows no dots for last week, even though I attended classes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      placeholder: Dots for each period, like other weeks.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Log in and sync
+        2. Open Attendance → Calendar
+        3. Tap 22 September
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the app?
+      options:
+        - Login
+        - Home
+        - Attendance (subjects)
+        - Attendance (calendar)
+        - Results
+        - Materials
+        - Settings
+        - Installing / offline
+        - Running it locally or deploying
+        - Something else
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      placeholder: Android 15, Chrome 140 (installed app)
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots help, but hide your name, register number and marks first.
+    validations:
+      required: false

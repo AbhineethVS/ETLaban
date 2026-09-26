@@ -1,0 +1,29 @@
+name: Feature request
+description: An idea to make Better ETLab more useful.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would it solve?
+      description: Describe what's hard or missing today.
+      placeholder: Before exams I keep checking which subjects I can still skip, one by one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How could the app help? Rough ideas are fine.
+      placeholder: A "before exams" view that lists how many classes I can miss per subject.
+    validations:
+      required: true
+
+  - type: textarea
+    id: etlab
+    attributes:
+      label: Is this data on ETLab?
+      description: Better ETLab can only show what ETLab has. Tell us which ETLab page has it, if you know.
+    validations:
+      required: false
