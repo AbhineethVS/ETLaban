@@ -9,7 +9,7 @@ from .tables import BASE_URL
 
 LOGIN_URL = f"{BASE_URL}/user/login"
 DASHBOARD_URL = f"{BASE_URL}/user/dashboard"
-USER_AGENT = "Mozilla/5.0 (compatible; BetterETLab)"
+USER_AGENT = "Mozilla/5.0 (compatible; ETLaban)"
 TIMEOUT = 20
 MAX_PARALLEL = 6
 

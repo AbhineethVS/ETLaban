@@ -1,4 +1,4 @@
-const CACHE_NAME = "better-etlab-v7";
+const CACHE_NAME = "etlaban-v8";
 const APP_SHELL = [
   "./",
   "./login",
@@ -16,6 +16,8 @@ const APP_SHELL = [
   "./icon.svg",
   "./icon-192.png",
   "./icon-512.png",
+  "./icon-maskable-512.png",
+  "./apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (event) => {

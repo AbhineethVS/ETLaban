@@ -1,5 +1,5 @@
 ---
-description: Mobile-first PWA UI rules for Better ETLab. Prevent generic AI dashboard slop.
+description: Mobile-first PWA UI rules for ETLaban. Prevent generic AI dashboard slop.
 globs: "*.html,*.css,app.js,auth.js,landing.js,login.js,ui.js"
 alwaysApply: false
 ---

@@ -114,7 +114,7 @@ form.addEventListener("submit", async (event) => {
   } catch (error) {
     setBusy("idle");
     const offline = error instanceof TypeError;
-    showError(offline ? "Can't reach the Better ETLab server. Is it running?" : error.message);
+    showError(offline ? "Can't reach the ETLaban server. Is it running?" : error.message);
   }
 });
 

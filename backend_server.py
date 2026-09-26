@@ -1,4 +1,4 @@
-"""Run Better ETLab locally (PC + phone on the same Wi-Fi).
+"""Run ETLaban locally (PC + phone on the same Wi-Fi).
 
 Same API as the Vercel deployment (see etlab/api.py), plus the static files.
 Each browser gets its own sealed session cookie; nothing is written to disk
@@ -39,7 +39,7 @@ def load_vercel_headers():
 HEADER_RULES = load_vercel_headers()
 
 
-class BetterEtlabHandler(BaseHTTPRequestHandler):
+class EtlabanHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self._route("GET")
 
@@ -100,8 +100,8 @@ def lan_ips():
 
 
 def main():
-    server = ThreadingHTTPServer((HOST, PORT), BetterEtlabHandler)
-    print(f"Better ETLab running on {HOST}:{PORT}")
+    server = ThreadingHTTPServer((HOST, PORT), EtlabanHandler)
+    print(f"ETLaban running on {HOST}:{PORT}")
     print(f"Local:  http://127.0.0.1:{PORT}/")
     for ip in lan_ips():
         print(f"Phone:  http://{ip}:{PORT}/")

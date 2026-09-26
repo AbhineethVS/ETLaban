@@ -1,12 +1,12 @@
 {
-  "name": "Better ETLab",
-  "short_name": "Better ETLab",
-  "description": "A cleaner student dashboard for ETLab data.",
+  "name": "ETLaban",
+  "short_name": "ETLaban",
+  "description": "Same data, less suffering. Your ETLab attendance, results and study materials in one calm, fast app.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f7f5f0",
-  "theme_color": "#101828",
+  "theme_color": "#f7f5f0",
   "icons": [
     {
       "src": "icon-192.png",
@@ -18,7 +18,13 @@
       "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "icon.svg",

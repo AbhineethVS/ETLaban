@@ -569,7 +569,7 @@ async function runSync({ fromLogin = false, quiet = false } = {}) {
   const reason = settled.find((r) => r.status === "rejected").reason;
   state.lastSyncError =
     reason instanceof TypeError
-      ? "Can't reach Better ETLab. Check your connection."
+      ? "Can't reach ETLaban. Check your connection."
       : failed.length === keys.length
         ? reason.message
         : `Couldn't refresh ${failed.map((k) => SOURCE_LABELS[k]).join(" and ")}. ${reason.message}`;
@@ -1496,7 +1496,7 @@ function renderSettings() {
         <h2 class="group-label kicker">App</h2>
         <div class="card group">
           ${setting(
-            "Install Better ETLab",
+            "Install ETLaban",
             standalone ? "Installed. You're using the app." : "Open it from your home screen like any other app.",
             standalone
               ? `<span class="live"><i></i>Installed</span>`
@@ -1575,7 +1575,7 @@ function updateNav() {
 
 function render({ animate = false } = {}) {
   app.innerHTML = RENDERERS[state.view]();
-  document.title = `${VIEWS[state.view].title} · Better ETLab`;
+  document.title = `${VIEWS[state.view].title} · ETLaban`;
   updateNav();
   updateSyncStatus();
   if (state.view === "materials") applyMaterialFilter();
@@ -1917,7 +1917,7 @@ window.addEventListener("appinstalled", () => {
   writeStorage(STORAGE.installDismissed, "1");
   writeStorage(STORAGE.installAutoPrompted, "1");
   showInstallCard(false);
-  toast("Installed. Find Better ETLab on your home screen.", { icon: "check" });
+  toast("Installed. Find ETLaban on your home screen.", { icon: "check" });
 });
 
 /* ---------------------------------------------------------------------------

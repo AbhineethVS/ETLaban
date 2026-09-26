@@ -1,5 +1,5 @@
 name: Feature request
-description: An idea to make Better ETLab more useful.
+description: An idea to make ETLaban more useful.
 labels: ["enhancement"]
 body:
   - type: textarea
@@ -24,6 +24,6 @@ body:
     id: etlab
     attributes:
       label: Is this data on ETLab?
-      description: Better ETLab can only show what ETLab has. Tell us which ETLab page has it, if you know.
+      description: ETLaban can only show what ETLab has. Tell us which ETLab page has it, if you know.
     validations:
       required: false

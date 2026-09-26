@@ -1,6 +1,6 @@
 # Code of conduct
 
-Better ETLab is a small project made by students, for students. We want it to be
+ETLaban is a small project made by students, for students. We want it to be
 a friendly place for everyone, whatever their year, branch, background or
 experience.
 

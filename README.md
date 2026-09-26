@@ -2,10 +2,10 @@
   <img src="icon.svg" alt="" width="72" height="72" />
 </p>
 
-<h1 align="center">Better ETLab</h1>
+<h1 align="center">ETLaban</h1>
 
 <p align="center">
-  <strong>ETLab, minus the mess.</strong><br />
+  <strong>same data, less suffering.</strong><br />
   A calm, fast app for your attendance, results and study materials.<br />
   Made for students of College of Engineering Trivandrum.
 </p>
@@ -30,10 +30,13 @@
 ## What is this?
 
 ETLab has all your college data, but it is slow and hard to read on a phone.
-Better ETLab logs in to ETLab for you, reads the same pages you would see,
+ETLaban logs in to ETLab for you, reads the same pages you would see,
 and shows them in a clean app that works well on your phone.
 
 It is **unofficial**. It only reads your data. It never changes anything on ETLab.
+
+**Why the name?** It's a nod to [Sign Laban](https://www.signlaban.com/), the dessert
+shop every CET student knows. ETLab, but sweeter.
 
 ## Features
 
@@ -54,7 +57,7 @@ It is **unofficial**. It only reads your data. It never changes anything on ETLa
 - **Works on laptops too.** A roomier layout with a sidebar on bigger screens.
 
 <p align="center">
-  <img src="docs/screenshots/desktop.webp" alt="Better ETLab on a laptop" width="88%" />
+  <img src="docs/screenshots/desktop.webp" alt="ETLaban on a laptop" width="88%" />
 </p>
 
 ## Is it safe?
@@ -164,7 +167,7 @@ how to fix things when ETLab changes its pages.
 
 ## Disclaimer
 
-Better ETLab is an independent student project. It is not made by, endorsed by,
+ETLaban is an independent student project. It is not made by, endorsed by,
 or connected to ETLab, Etuwa Concepts, College of Engineering Trivandrum, or KTU.
 It shows the same data ETLab shows you. Always check ETLab itself for anything
 official, like exam eligibility.

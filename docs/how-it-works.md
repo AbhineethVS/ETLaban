@@ -1,4 +1,4 @@
-# How Better ETLab works
+# How ETLaban works
 
 This page explains what happens behind the screen: how you log in, where your
 data goes, and what is stored where. It is written for curious students and for
@@ -7,8 +7,8 @@ developers.
 ## The big picture
 
 ```text
- Your phone                      Better ETLab server               ETLab
- ───────────                     ───────────────────               ─────
+ Your phone                      ETLaban server                    ETLab
+ ───────────                     ──────────────                    ─────
  app (HTML, CSS, JS)  ── /api ─▶  Python function (etlab/)  ──▶  cet.etlab.in
  keeps a copy of your data        keeps nothing                  has your data
  keeps your encrypted cookie
@@ -19,7 +19,7 @@ There are three parts:
 1. **The app** runs in your browser. It shows your data and keeps a copy on your device.
 2. **The server** is a small Python function. It logs in to ETLab for you, fetches
    pages, and turns them into data. It does not remember anything between requests.
-3. **ETLab** is where your data really lives. Better ETLab only reads from it.
+3. **ETLab** is where your data really lives. ETLaban only reads from it.
 
 ## Logging in
 
@@ -138,6 +138,6 @@ local server):
 
 - The calendar shows the **current month**, because that is what ETLab's monthly
   report gives.
-- Better ETLab reads ETLab's HTML. If ETLab changes a page, that part may break
+- ETLaban reads ETLab's HTML. If ETLab changes a page, that part may break
   until the parser is updated. See [CONTRIBUTING.md](../CONTRIBUTING.md#when-etlab-changes-a-page).
 - It is built for CET's ETLab (`cet.etlab.in`). Other colleges use different addresses and layouts.

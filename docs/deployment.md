@@ -1,6 +1,6 @@
 # Deployment guide
 
-Better ETLab has two ways to run:
+ETLaban has two ways to run:
 
 - **On Vercel**, so anyone with the link can use it.
 - **On your own computer**, for development, or for your phone on the same Wi-Fi.

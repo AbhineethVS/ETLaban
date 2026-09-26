@@ -1,4 +1,4 @@
-# Contributing to Better ETLab
+# Contributing to ETLaban
 
 Thanks for wanting to help. This guide explains how to set things up, how the
 code is organised, and what to check before you open a pull request.

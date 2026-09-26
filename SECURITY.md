@@ -1,6 +1,6 @@
 # Security policy
 
-Better ETLab handles students' ETLab logins, so security problems matter a lot.
+ETLaban handles students' ETLab logins, so security problems matter a lot.
 Thank you for helping keep it safe.
 
 ## Reporting a problem

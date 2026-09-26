@@ -1,5 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Better ETLab">
-  <rect width="128" height="128" rx="30" fill="#161512"/>
-  <path d="M31 74c0-24 15-42 36-42 14 0 25 7 31 18l-17 8c-3-6-8-10-15-10-10 0-18 9-18 24s8 24 19 24c8 0 14-4 17-12h-22V69h42v7c0 23-15 37-37 37-22 0-36-16-36-39Z" fill="#f7f5f0"/>
-  <path d="M28 25h72v12H28z" fill="#e0693a"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ETLaban">
+  <rect width="512" height="512" rx="116" fill="#161512"/>
+  <g transform="translate(256 261) scale(1.08) translate(-256 -261)">
+    <!-- cup -->
+    <path d="M158 266H354L335 382Q332 400 314 400H198Q180 400 177 382Z" fill="#efe8dc"/>
+    <!-- label: checked box + two lines -->
+    <rect x="194" y="296" width="124" height="74" rx="16" fill="#fffdf8"/>
+    <rect x="208" y="314" width="36" height="36" rx="9" fill="#df6a3a"/>
+    <path d="M217 332l7.5 7.5 12.5-14" fill="none" stroke="#fffdf8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="254" y="318" width="50" height="9" rx="4.5" fill="#d2c9b9"/>
+    <rect x="254" y="337" width="34" height="9" rx="4.5" fill="#d2c9b9"/>
+    <!-- rim -->
+    <rect x="142" y="240" width="228" height="34" rx="17" fill="#e3dbcc"/>
+    <!-- soft-serve swirl -->
+    <path d="M166 250C158 222 180 204 206 202C198 180 216 164 240 164C240 142 258 126 284 122C276 136 280 150 294 156C318 164 326 182 318 200C342 204 356 226 346 250Z" fill="#fffdf8"/>
+    <path d="M204 224C238 236 292 236 326 222M234 186C256 194 284 194 304 184" fill="none" stroke="#e6dfd2" stroke-width="7" stroke-linecap="round"/>
+    <!-- caramel drip over the rim and down the cup -->
+    <path d="M310 247C316 240 332 240 338 247V298C338 305 343 310 343 319C343 329 336 336 328.5 336C321 336 314 329 314 319C314 310 319 305 319 298V262C319 256 315 252 310 252Z" fill="#df6a3a"/>
+  </g>
 </svg>
