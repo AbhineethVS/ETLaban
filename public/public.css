@@ -510,6 +510,11 @@ html:not(.is-checking) .float {
   font-size: 0.8rem;
 }
 
+.footer-link {
+  gap: 8px;
+  color: var(--muted);
+}
+
 /* --- Login --------------------------------------------------------------- */
 
 .auth {
