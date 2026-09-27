@@ -55,6 +55,8 @@ shop every CET student knows. ETLab, but sweeter.
 - **Study materials.** Every file from ETLab in one searchable list, plus your own
   saved links (Drive folders, playlists, question banks).
 - **Your target, your rules.** Choose 75%, 80% or 85%. Every number updates.
+- **Stay signed in.** Tick *Keep me signed in* and ETLaban quietly logs you back in
+  whenever ETLab ends your session, instead of sending you to the login page every few hours.
 - **Light and dark mode.** It follows your phone, or pick one yourself.
 - **Install it like an app.** Add it to your home screen. It opens instantly and
   still shows your last data when you're offline.
@@ -68,7 +70,10 @@ shop every CET student knows. ETLab, but sweeter.
 
 This is the most important question, so here is the short answer.
 
-- **Your password is never stored.** It is sent to ETLab once, to log in, and then thrown away.
+- **Your password is not stored, unless you ask.** Normally it is sent to ETLab once, to log in,
+  and then thrown away. If you tick **Keep me signed in**, it is kept encrypted inside your
+  login cookie in your own browser (never on the server), so ETLaban can sign you back in when
+  ETLab logs you out. Logging out deletes it.
 - **Your data is not stored on the server.** Each time you sync, the server fetches
   your pages from ETLab, turns them into data for the app, and forgets them.
 - **Your login stays in your own browser.** It is kept as an encrypted cookie that
@@ -152,16 +157,18 @@ All routes return JSON.
 
 | Method | Route             | What it does                                                 |
 | ------ | ----------------- | ------------------------------------------------------------ |
-| POST   | `/api/login`      | Log in with `{ username, password }`. Sets the session cookie. |
+| POST   | `/api/login`      | Log in with `{ username, password, remember }`. Sets the session cookie. |
 | POST   | `/api/cookie`     | Log in with a pasted ETLab cookie instead (fallback).        |
+| POST   | `/api/renew`      | Log back in to ETLab with the password saved by *Keep me signed in*. |
 | POST   | `/api/logout`     | Clear the session cookie.                                    |
 | GET    | `/api/me`         | `{ loggedIn, username }`                                     |
 | GET    | `/api/attendance` | Subject totals, the month calendar, and each day's periods.  |
 | GET    | `/api/results`    | Every semester so far: marks, grades, SGPA and CGPA.         |
 | GET    | `/api/materials`  | Notes and files from ETLab.                                  |
 
-If your ETLab session has expired, data routes answer `401` with `"expired": true`,
-and the app asks you to log in again.
+If your ETLab session has expired, data routes answer `401` with `"expired": true`.
+If you chose *Keep me signed in*, the answer also has `"renewable": true`: the app calls
+`/api/renew` once and retries. Otherwise it asks you to log in again.
 
 ## Contributing
 

@@ -1,7 +1,8 @@
 """HTTP API shared by the Vercel function (api/index.py) and the local server.
 
-    POST /api/login        {username, password}  -> sets the session cookie
+    POST /api/login        {username, password, remember}  -> sets the session cookie
     POST /api/cookie       {cookie}              -> same, from a pasted ETLab cookie
+    POST /api/renew                              -> logs back in with the remembered password
     POST /api/logout                             -> clears it
     GET  /api/me                                 -> {loggedIn, username}
     GET  /api/attendance | /api/results | /api/materials   (fetched live from ETLab)
@@ -55,9 +56,22 @@ def _read_json(body: bytes):
     return data
 
 
-def _start_session(etlab_cookie: str, username: str, secure: bool):
-    token = session.seal(etlab_cookie, username)
+def _start_session(etlab_cookie: str, username: str, secure: bool, password: str = ""):
+    token = session.seal(etlab_cookie, username, password)
     return _json(200, {"ok": True, "username": username}, [session.set_cookie(token, secure)])
+
+
+def _renew(current, secure: bool):
+    """Start a fresh ETLab session with the password sealed in a remembered login."""
+    if not current or not current["password"]:
+        return _error(401, "Your ETLab session expired. Log in again.", [session.clear_cookie(secure)], expired=True)
+    try:
+        etlab_cookie = client.login(current["username"], current["password"])
+    except client.LoginFailed:
+        # Most likely the ETLab password changed; forget the old one.
+        message = "ETLab didn't accept your saved password. Log in again."
+        return _error(401, message, [session.clear_cookie(secure)], expired=True)
+    return _start_session(etlab_cookie, current["username"], secure, current["password"])
 
 
 def handle(method: str, path: str, headers, body: bytes = b"") -> Response:
@@ -69,7 +83,7 @@ def handle(method: str, path: str, headers, body: bytes = b"") -> Response:
         if path == "/api/health":
             return _json(200, {"ok": True})
 
-        if method == "POST" and path in {"/api/login", "/api/cookie", "/api/logout"}:
+        if method == "POST" and path in {"/api/login", "/api/cookie", "/api/renew", "/api/logout"}:
             # JSON only: combined with SameSite=Lax this blocks cross-site form posts.
             if path != "/api/logout" and "application/json" not in (headers.get("content-type") or ""):
                 return _error(415, "Send JSON")
@@ -77,11 +91,15 @@ def handle(method: str, path: str, headers, body: bytes = b"") -> Response:
             if path == "/api/logout":
                 return _json(200, {"ok": True}, [session.clear_cookie(secure)])
 
+            if path == "/api/renew":
+                return _renew(session.read(headers.get("cookie") or ""), secure)
+
             data = _read_json(body)
             if path == "/api/login":
                 username = str(data.get("username") or "").strip()
-                etlab_cookie = client.login(username, str(data.get("password") or ""))
-                return _start_session(etlab_cookie, username, secure)
+                password = str(data.get("password") or "")
+                etlab_cookie = client.login(username, password)
+                return _start_session(etlab_cookie, username, secure, password if data.get("remember") is True else "")
 
             etlab_cookie = client.normalise_cookie(str(data.get("cookie") or ""))
             if not client.verify(etlab_cookie):
@@ -96,7 +114,13 @@ def handle(method: str, path: str, headers, body: bytes = b"") -> Response:
         if method == "GET" and path in DATA_ROUTES:
             if not current:
                 return _error(401, "Log in to continue", expired=False)
-            return _json(200, DATA_ROUTES[path](client.Client(current["cookie"])))
+            try:
+                return _json(200, DATA_ROUTES[path](client.Client(current["cookie"])))
+            except client.SessionExpired:
+                if not current["password"]:
+                    raise
+                # Keep the cookie: the app calls /api/renew once, then retries.
+                return _error(401, "Your ETLab session expired", expired=True, renewable=True)
 
         return _error(404, "Not found")
 

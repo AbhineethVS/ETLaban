@@ -118,6 +118,7 @@ def login(username: str, password: str) -> str:
         body = urlencode({
             "LoginForm[username]": username,
             "LoginForm[password]": password,
+            "LoginForm[rememberMe]": "1",  # Ask ETLab for a longer session; ignored if unsupported.
             "YII_CSRF_TOKEN": csrf,
             "yt0": "",
         }).encode("utf-8")

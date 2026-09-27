@@ -27,18 +27,20 @@ When you press **Log in**:
 
 1. Your browser sends your username and password to `/api/login` over HTTPS.
 2. The server opens ETLab's login page, fills in the form, and submits it,
-   just like you would.
+   just like you would. It also asks ETLab to remember the login, so the session
+   may last longer if ETLab supports it.
 3. If ETLab accepts it, ETLab gives back a *session cookie*. This is ETLab's way
    of remembering that you are logged in.
 4. The server checks that the session works by opening your ETLab dashboard.
 5. The server **encrypts** that ETLab cookie and sends it back to your browser as
    a cookie called `be_session`.
-6. Your password is not saved anywhere, and it is never written to logs.
+6. Your password is never written to logs. Unless you ticked **Keep me signed in**
+   (see below), it is not saved anywhere.
 
 ### The encrypted cookie
 
-The `be_session` cookie holds your ETLab session, your username and the time
-you logged in. It is encrypted with [Fernet](https://cryptography.io/en/latest/fernet/)
+The `be_session` cookie holds your ETLab session, your username, the time
+you logged in and, only if you chose *Keep me signed in*, your password. It is encrypted with [Fernet](https://cryptography.io/en/latest/fernet/)
 (AES encryption plus a signature), using a key made from the server's `SESSION_SECRET`.
 
 This means:
@@ -49,10 +51,38 @@ This means:
 - It is marked `SameSite=Lax`, so other websites can't use it to make requests for you.
 - On HTTPS it is marked `Secure`, so it is never sent over an unencrypted connection.
 - It expires after 30 days. ETLab usually ends sessions sooner; when that happens,
-  the app asks you to log in again.
+  the app either signs you back in (with *Keep me signed in*) or asks you to log in again.
 
 Because each student's session lives in their own browser, the server never
 needs a database, and one student can never see another student's data.
+
+### Keep me signed in
+
+ETLab ends its sessions after a few hours. Without help, that means typing your
+password again several times a day. The **Keep me signed in** box on the login
+page fixes that. It is off unless you tick it.
+
+When it is on:
+
+1. The server puts your password inside the encrypted `be_session` cookie, next to
+   your ETLab session. It is **not** stored on the server, in a database or in the
+   app's storage, and scripts on the page can't read it.
+2. When ETLab ends your session, the data routes answer `401` with
+   `"expired": true, "renewable": true` and keep your cookie.
+3. The app calls `/api/renew` once. The server decrypts the cookie, logs in to ETLab
+   with your saved username and password, and sends back a fresh cookie.
+4. The app retries whatever failed. You don't see a login page.
+
+Each renewal gives you a new cookie, so you stay signed in until you log out, or until
+you don't open the app for 30 days. If ETLab rejects the saved password (for example
+because you changed it), the cookie is deleted and you are asked to log in again.
+
+**The trade-off.** Your password now lives in your browser, encrypted. Someone who
+copies the cookie from your browser can keep using ETLaban as you until you log out
+or change your ETLab password. They still can't read your password unless they also
+have the server's `SESSION_SECRET`. If that ever leaks, changing `SESSION_SECRET`
+makes every existing cookie useless. Leave the box unticked on shared or public
+computers.
 
 ## Syncing your data
 
@@ -81,6 +111,10 @@ If ETLab sends the server back to its login page, the server answers `401` with
 `"expired": true` and clears your `be_session` cookie. The app then shows the
 login page with a short note.
 
+With *Keep me signed in*, the server keeps the cookie and adds `"renewable": true`,
+and the app signs you back in instead (see [Keep me signed in](#keep-me-signed-in)).
+The app renews once for all three routes, so ETLab only sees one new login.
+
 ### When something fails
 
 The three routes are independent. If one fails (say ETLab is slow for results),
@@ -91,7 +125,7 @@ could not refresh.
 
 | Where                 | What                                                                  | How long                         |
 | --------------------- | --------------------------------------------------------------------- | -------------------------------- |
-| Your browser (cookie) | `be_session`: your encrypted ETLab session                            | Until you log out, or 30 days    |
+| Your browser (cookie) | `be_session`: your encrypted ETLab session (and, only with *Keep me signed in*, your password) | Until you log out, or 30 days (unused, with *Keep me signed in*) |
 | Your browser (storage)| A copy of your attendance, results and materials, and when it was saved | Until you log out or someone else logs in on that browser |
 | Your browser (storage)| Your settings: theme, attendance target, saved links                  | Until you clear them             |
 | Your browser (cache)  | The app's own files (HTML, CSS, JS, icons), so it opens offline       | Replaced on each new version     |

@@ -3,6 +3,10 @@
 The server keeps no session store. The ETLab cookie is encrypted with
 SESSION_SECRET (Fernet: AES + HMAC), so a copied browser cookie can't be
 turned back into a raw ETLab session, and it can't be forged or edited.
+
+When a student ticks "Keep me signed in", their password is sealed into the
+same cookie so the server can log back in to ETLab when that session ends.
+It never leaves the cookie in readable form and is never stored server-side.
 """
 
 import base64
@@ -17,7 +21,9 @@ from pathlib import Path
 from cryptography.fernet import Fernet, InvalidToken
 
 COOKIE_NAME = "be_session"
-MAX_AGE = 30 * 24 * 60 * 60  # ETLab usually expires sessions sooner; we notice and ask to log in again.
+# ETLab usually expires sessions sooner. Then we log back in (if remembered) or ask the student to.
+# Each renewal issues a fresh cookie, so a remembered login only ends after 30 days unused.
+MAX_AGE = 30 * 24 * 60 * 60
 LOCAL_SECRET_PATH = Path(__file__).resolve().parent.parent / ".session-secret"
 
 _fernet = None
@@ -43,8 +49,11 @@ def _box() -> Fernet:
     return _fernet
 
 
-def seal(etlab_cookie: str, username: str) -> str:
-    payload = json.dumps({"c": etlab_cookie, "u": username, "t": int(time.time())}, separators=(",", ":"))
+def seal(etlab_cookie: str, username: str, password: str = "") -> str:
+    data = {"c": etlab_cookie, "u": username, "t": int(time.time())}
+    if password:
+        data["p"] = password
+    payload = json.dumps(data, separators=(",", ":"))
     return _box().encrypt(payload.encode("utf-8")).decode("ascii")
 
 
@@ -55,7 +64,12 @@ def unseal(token: str):
         return None
     if not isinstance(data, dict) or not data.get("c"):
         return None
-    return {"cookie": data["c"], "username": data.get("u") or "", "issuedAt": data.get("t")}
+    return {
+        "cookie": data["c"],
+        "username": data.get("u") or "",
+        "password": data.get("p") or "",
+        "issuedAt": data.get("t"),
+    }
 
 
 def read(cookie_header: str):

@@ -7,12 +7,14 @@ initPublicUi();
 const form = document.querySelector("#login-form");
 const usernameInput = form.querySelector("#username");
 const passwordInput = form.querySelector("#password");
+const rememberInput = form.querySelector("#remember");
 const submitButton = form.querySelector("button[type='submit']");
 const passwordToggle = document.querySelector("#password-toggle");
 const capsHint = document.querySelector("#caps-hint");
 const errorEl = document.querySelector("#login-error");
 const statusEl = document.querySelector("#login-status");
 const noteEl = document.querySelector("#login-note");
+const footText = document.querySelector("#auth-foot-text");
 const params = new URLSearchParams(window.location.search);
 
 function setMessage(element, text) {
@@ -39,6 +41,7 @@ function setBusy(state) {
   usernameInput.disabled = state !== "idle";
   passwordInput.disabled = state !== "idle";
   passwordToggle.disabled = state !== "idle";
+  rememberInput.disabled = state !== "idle";
   statusEl.textContent = { idle: "", busy: "Signing in", done: "Signed in. Opening dashboard." }[state];
 }
 
@@ -70,6 +73,15 @@ function updateCapsHint(event) {
   capsHint.classList.toggle("is-on", event.getModifierState("CapsLock"));
 }
 
+function updateFootText() {
+  footText.textContent = rememberInput.checked
+    ? "Stored encrypted in this browser. Log out to delete it."
+    : "Used once to sign in. Never stored.";
+}
+
+rememberInput.addEventListener("change", updateFootText);
+updateFootText(); // browsers can restore the checkbox on back/forward
+
 passwordInput.addEventListener("keydown", updateCapsHint);
 passwordInput.addEventListener("keyup", updateCapsHint);
 passwordInput.addEventListener("blur", () => capsHint.classList.remove("is-on"));
@@ -99,7 +111,7 @@ form.addEventListener("submit", async (event) => {
     const response = await fetch("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, remember: rememberInput.checked }),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {

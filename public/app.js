@@ -527,10 +527,26 @@ async function fetchSource(key) {
     const error = new Error(body.error || "Log in again");
     error.signedOut = true;
     error.expired = Boolean(body.expired);
+    error.renewable = Boolean(body.renewable);
     throw error;
   }
   if (!response.ok) throw new Error(body.error || `Couldn't load ${SOURCE_LABELS[key]}`);
   return body;
+}
+
+// "Keep me signed in": the server logs back in to ETLab with the password sealed in the cookie.
+async function renewSession() {
+  const response = await fetch("/api/renew", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+  });
+  if (response.ok) return;
+  const body = await response.json().catch(() => ({}));
+  const error = new Error(body.error || "Couldn't sign you back in to ETLab");
+  error.signedOut = response.status === 401;
+  error.expired = Boolean(body.expired);
+  throw error;
 }
 
 async function runSync({ fromLogin = false, quiet = false } = {}) {
@@ -542,8 +558,26 @@ async function runSync({ fromLogin = false, quiet = false } = {}) {
   const keys = Object.keys(SOURCES);
   const settled = await Promise.allSettled(keys.map(fetchSource));
 
+  // One renewal for all sources, then retry only the ones that hit the expired session.
+  const renewable = keys.filter((_, index) => settled[index].reason?.renewable);
+  if (renewable.length) {
+    try {
+      await renewSession();
+      const retried = await Promise.allSettled(renewable.map(fetchSource));
+      renewable.forEach((key, index) => {
+        settled[keys.indexOf(key)] = retried[index];
+      });
+    } catch (error) {
+      renewable.forEach((key) => {
+        settled[keys.indexOf(key)] = { status: "rejected", reason: error };
+      });
+    }
+  }
+
   const signedOut = settled.find((r) => r.status === "rejected" && r.reason?.signedOut);
   if (signedOut) {
+    // A remembered cookie that still fails is kept by the server; drop it so /login doesn't bounce back here.
+    if (signedOut.reason.renewable) await fetch("/api/logout", { method: "POST" }).catch(() => {});
     rememberSignedIn(false);
     window.location.replace(signedOut.reason.expired ? "/login?expired=1" : "/login");
     return;

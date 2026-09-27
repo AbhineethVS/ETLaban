@@ -584,6 +584,39 @@ html:not(.is-checking) .float {
   gap: 18px;
 }
 
+.remember-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.remember-field input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
+
+.remember-field input:disabled,
+.remember-field input:disabled + span {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.remember-hint {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
 .caps-hint {
   color: var(--brand);
   font-size: 0.76rem;
