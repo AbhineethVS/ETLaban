@@ -1,4 +1,4 @@
-const CACHE_NAME = "etlaban-v10";
+const CACHE_NAME = "etlaban-v11";
 const APP_SHELL = [
   "./",
   "./login",
@@ -39,6 +39,7 @@ self.addEventListener("fetch", (event) => {
   if (!event.request.url.startsWith("http")) return;
 
   const url = new URL(event.request.url);
+  if (url.pathname.startsWith("/_vercel/")) return;
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(fetch(event.request));
     return;

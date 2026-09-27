@@ -80,6 +80,8 @@ This is the most important question, so here is the short answer.
   scripts on the page can't read. Every student's session is completely separate.
 - **Your data stays on your phone.** The app keeps a copy on your device so it opens
   fast. Logging out deletes it.
+- **Only anonymous visit counts.** The live site uses [Vercel Web Analytics](https://vercel.com/docs/analytics/privacy-policy)
+  to count page views. It uses no cookies and never sees your username, password or ETLab data.
 - **The code is open.** You can read exactly what it does, right here.
 
 Want the details? See [How it works](docs/how-it-works.md) and the [security policy](SECURITY.md).
