@@ -10,10 +10,13 @@
     theme = localStorage.getItem("better-etlab-theme");
     signedIn = localStorage.getItem("better-etlab-signed-in") === "1";
   } catch {
-    // Storage blocked: fall back to the system theme.
+    // Storage blocked: keep the light default.
   }
-  if (theme !== "light" && theme !== "dark") {
+  if (theme === "system") {
     theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  } else if (theme !== "light" && theme !== "dark") {
+    // Fresh visitors and shared links open in light unless a theme was chosen.
+    theme = "light";
   }
   root.dataset.theme = theme;
   root.classList.add("js");

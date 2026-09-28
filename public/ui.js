@@ -28,19 +28,15 @@ function systemTheme() {
   return darkScheme.matches ? "dark" : "light";
 }
 
-// "light" | "dark" | "system"
+// "light" | "dark" | "system" — missing preference defaults to light.
 export function getThemePreference() {
   const stored = storedTheme();
-  return stored === "light" || stored === "dark" ? stored : "system";
+  return stored === "light" || stored === "dark" || stored === "system" ? stored : "light";
 }
 
 export function setThemePreference(preference, origin) {
   try {
-    if (preference === "system") {
-      localStorage.removeItem(THEME_KEY);
-    } else {
-      localStorage.setItem(THEME_KEY, preference);
-    }
+    localStorage.setItem(THEME_KEY, preference);
   } catch {
     // Private mode: the switch still works for this page.
   }
@@ -85,9 +81,9 @@ export function initTheme() {
     button.addEventListener("click", () => switchTheme(button));
   });
 
-  // Follow the OS setting until the user picks a theme themselves.
+  // Follow the OS setting only when Auto is explicitly selected.
   darkScheme.addEventListener("change", (event) => {
-    if (!storedTheme()) applyTheme(event.matches ? "dark" : "light");
+    if (storedTheme() === "system") applyTheme(event.matches ? "dark" : "light");
   });
 }
 

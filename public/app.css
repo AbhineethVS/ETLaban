@@ -1012,7 +1012,12 @@ button.subject-head {
 
 .toolbar .segmented {
   width: 100%;
-  max-width: 340px;
+  max-width: 440px;
+}
+
+.toolbar .segmented button {
+  padding: 0 12px;
+  font-size: 0.84rem;
 }
 
 /* --- Calendar ------------------------------------------------------------- */
@@ -1712,6 +1717,35 @@ button.subject-head {
   font-size: 1.35rem;
   font-style: italic;
   letter-spacing: 0;
+}
+
+.file-tile[data-kind="papers"] {
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+}
+
+.model-papers {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px 18px;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.2s ease;
+}
+
+@media (hover: hover) {
+  .model-papers:hover {
+    border-color: var(--line-strong);
+  }
+
+  .model-papers:hover .row-go {
+    color: var(--text);
+    transform: translate(2px, -2px);
+  }
 }
 
 .mat-text {
