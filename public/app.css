@@ -805,6 +805,10 @@ a.mat-head:active {
   cursor: pointer;
 }
 
+div.subject-head {
+  cursor: default;
+}
+
 button.subject-head {
   grid-template-columns: minmax(0, 1fr) auto 18px;
   grid-template-areas:
@@ -1420,6 +1424,10 @@ button.subject-head {
   color: var(--text);
 }
 
+.sem-col[data-tone="risk"] .sem-value {
+  color: var(--danger);
+}
+
 .sem-fill {
   width: min(24px, 62%);
   height: calc(var(--h) * 100%);
@@ -1454,6 +1462,21 @@ button.subject-head {
 
 .sem-col[data-state="current"][aria-checked="true"] .sem-stub {
   background: repeating-linear-gradient(135deg, var(--brand) 0 1.5px, transparent 1.5px 5px);
+}
+
+/* Attendance target as a dashed line across the columns. */
+.sem-cols[data-target] .sem-track {
+  position: relative;
+}
+
+.sem-cols[data-target] .sem-track::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--t) * (100% - 24px));
+  left: 0;
+  border-top: 1px dashed var(--line-strong);
+  pointer-events: none;
 }
 
 .sem-label {
@@ -1517,7 +1540,8 @@ button.subject-head {
   font-weight: 500;
 }
 
-.sem-status[data-tone="risk"] {
+.sem-status[data-tone="risk"],
+.sem-summary dd[data-tone="risk"] {
   color: var(--danger);
 }
 

@@ -293,11 +293,31 @@ function overall() {
   const summary = state.data.attendanceSubject?.summary;
   const fraction = parseFraction(summary?.total);
   if (fraction) return attendanceInfo(fraction.present, fraction.total);
-  const list = subjects();
+  return totalsOf(subjects());
+}
+
+function totalsOf(list) {
   if (!list.length) return null;
   const present = list.reduce((sum, s) => sum + s.present, 0);
   const total = list.reduce((sum, s) => sum + s.total, 0);
   return attendanceInfo(present, total);
+}
+
+// Earlier semesters have no attendance report of their own here; their
+// results page lists each course's attendance, so read it from there.
+function semesterSubjects(semester) {
+  return (semester.universityResult || [])
+    .filter((course) => Number(course.attendance?.total) > 0)
+    .map((course) => {
+      const { code, name } = parseSubject(course.subjectName);
+      const present = Number(course.attendance.present) || 0;
+      const total = Number(course.attendance.total);
+      return { code: course.subjectCode || code, name, short: shortName(name), ...attendanceInfo(present, total) };
+    });
+}
+
+function semesterAttendance(semester) {
+  return (semester.current && overall()) || totalsOf(semesterSubjects(semester));
 }
 
 function monthModel() {
@@ -891,15 +911,21 @@ function subjectNote(s) {
   return `Can miss ${s.canMiss}`;
 }
 
-function subjectRow(s, { compact = false } = {}) {
+// `finished` rows belong to an earlier semester: no advice, nothing to expand.
+function subjectRow(s, { compact = false, finished = false } = {}) {
+  const note = finished ? "" : ` · <span class="subject-note">${subjectNote(s)}</span>`;
   const inner = `
     <span class="subject-text">
       <span class="subject-name">${escapeHtml(compact ? s.short : s.name)}</span>
-      <span class="subject-meta">${compact ? "" : `<span class="mono">${escapeHtml(s.code)}</span> · `}${s.present} of ${s.total} · <span class="subject-note">${subjectNote(s)}</span></span>
+      <span class="subject-meta">${compact ? "" : `<span class="mono">${escapeHtml(s.code)}</span> · `}${s.present} of ${s.total}${note}</span>
     </span>
     <span class="subject-pct">${formatPercent(s.percent)}<small>%</small></span>
     ${meter(s.percent, s.tone)}
   `;
+
+  if (finished) {
+    return `<li class="subject" data-tone="${s.tone}"><div class="subject-head">${inner}</div></li>`;
+  }
 
   if (compact) {
     return `<li class="subject" data-tone="${s.tone}"><a class="subject-head" href="#attendance/subjects/${escapeHtml(s.code)}">${inner}</a></li>`;
@@ -950,6 +976,20 @@ function attendanceTab() {
   return localStorage.getItem(STORAGE.attendanceTab) === "calendar" ? "calendar" : "subjects";
 }
 
+function attendanceMeasure(semester) {
+  const info = semesterAttendance(semester);
+  if (!info) return {};
+  const text = `${formatPercent(info.percent)}%`;
+  return { value: info.percent / 100, text, detail: `${text} attendance`, tone: info.tone };
+}
+
+// `#attendance/semester/2` shows an earlier semester; anything else is the current one.
+function selectedAttendanceSemester() {
+  const list = semesters();
+  const wanted = state.sub === "semester" ? Number(state.arg) : null;
+  return list.find((s) => s.number === wanted) || list.find((s) => s.current) || null;
+}
+
 function renderAttendance() {
   const list = subjects();
   const info = overall();
@@ -960,16 +1000,38 @@ function renderAttendance() {
     return `${pageHead("Attendance", kicker)}${state.syncing ? firstSyncState() : emptyState({ title: "No attendance <em>yet.</em>", text: "Sync with ETLab to see your subjects and calendar." })}`;
   }
 
-  const tab = attendanceTab();
   const summary = info
     ? `<div class="att-summary" data-tone="${info.tone}">
         <span class="att-big">${formatPercent(info.percent)}<small>%</small></span>
         <span class="att-sub">${info.present} of ${info.total}<br />classes</span>
       </div>`
     : "";
+  const semesterList = semesters();
+  const chart = semesterList.length
+    ? semesterChart(semesterList, selectedAttendanceSemester(), {
+        title: "Attendance by semester",
+        meta: `Target ${target()}%`,
+        action: "att-semester",
+        measure: attendanceMeasure,
+        targetLine: target() / 100,
+      })
+    : "";
 
   return `
     ${pageHead("Attendance", kicker, summary)}
+    ${chart}
+    <div id="att-sem" class="panel">${attendanceBody()}</div>
+  `;
+}
+
+function attendanceBody() {
+  const semester = selectedAttendanceSemester();
+  return semester && !semester.current ? pastAttendance(semester) : currentAttendance();
+}
+
+function currentAttendance() {
+  const tab = attendanceTab();
+  return `
     <div class="toolbar">
       ${segmented(
         [
@@ -982,6 +1044,28 @@ function renderAttendance() {
       )}
     </div>
     <div id="att-body" class="panel">${tab === "calendar" ? renderCalendar() : renderSubjectList()}</div>
+  `;
+}
+
+function pastAttendance(semester) {
+  const title = `<h2 class="sem-title display">Semester ${semester.number}</h2>`;
+  const list = semesterSubjects(semester).sort((a, b) => a.percent - b.percent);
+  const info = totalsOf(list);
+  if (!info) return `${title}<p class="muted-note">ETLab has no attendance for this semester.</p>`;
+
+  const below = list.filter((s) => s.tone === "risk").length;
+  return `
+    ${title}
+    <dl class="card sem-summary">
+      <div><dt>Attendance</dt><dd data-tone="${info.tone}">${formatPercent(info.percent)}<span>%</span></dd></div>
+      <div><dt>Classes</dt><dd>${info.present}<span>/${info.total}</span></dd></div>
+      <div><dt>Below ${target()}%</dt><dd ${below ? 'data-tone="risk"' : ""}>${below}</dd></div>
+    </dl>
+    <section class="block">
+      ${blockHead(`Subjects <span class="count">${list.length}</span>`)}
+      <ul class="list card subjects">${list.map((s) => subjectRow(s, { finished: true })).join("")}</ul>
+      <p class="muted-note">From your semester ${semester.number} results on ETLab.</p>
+    </section>
   `;
 }
 
@@ -1119,41 +1203,50 @@ function semesterCount(list) {
   return Math.max(state.data.results?.semesterCount || 8, ...list.map((s) => s.number));
 }
 
-// SGPA per semester as a small column chart that doubles as the semester picker.
-function semesterChart(list, selected) {
+// A value per semester as a small column chart that doubles as the semester
+// picker. `measure(semester)` gives { value (0-1), text, detail, tone }; a
+// semester without a value gets a stub instead of a bar.
+function semesterChart(list, selected, { title, meta, action, measure, targetLine = null }) {
   const count = semesterCount(list);
   const byNumber = new Map(list.map((s) => [s.number, s]));
   const columns = Array.from({ length: count }, (_, index) => {
     const number = index + 1;
     const semester = byNumber.get(number);
-    const sgpa = Number(semester?.summary?.sgpa);
-    const hasSgpa = Boolean(semester) && Number.isFinite(sgpa) && sgpa > 0;
+    const m = semester ? measure(semester) : {};
+    const hasValue = Number.isFinite(m.value);
     const kind = !semester ? "upcoming" : semester.current ? "current" : "done";
-    const label = !semester
-      ? `Semester ${number}, not started`
-      : `Semester ${number}${hasSgpa ? `, SGPA ${sgpa.toFixed(2)}` : semester.current ? ", in progress" : ""}`;
+    const detail = !semester ? "not started" : m.detail || (semester.current ? "in progress" : "");
     return `
-      <button class="sem-col" type="button" role="radio" data-action="semester" data-value="${number}" data-state="${kind}"
-        aria-checked="${semester === selected}" aria-label="${label}" ${semester ? "" : "disabled"}
-        style="--h: ${hasSgpa ? (sgpa / 10).toFixed(3) : 0}">
+      <button class="sem-col" type="button" role="radio" data-action="${action}" data-value="${number}" data-state="${kind}"
+        ${m.tone ? `data-tone="${m.tone}"` : ""} aria-checked="${semester === selected}"
+        aria-label="Semester ${number}${detail ? `, ${detail}` : ""}" ${semester ? "" : "disabled"}
+        style="--h: ${hasValue ? Math.max(0, Math.min(m.value, 1)).toFixed(3) : 0}">
         <span class="sem-track">
-          <span class="sem-value">${hasSgpa ? sgpa.toFixed(2) : semester?.current ? "Now" : ""}</span>
-          ${hasSgpa ? '<span class="sem-fill"></span>' : '<span class="sem-stub"></span>'}
+          <span class="sem-value">${hasValue ? m.text : semester?.current ? "Now" : ""}</span>
+          ${hasValue ? '<span class="sem-fill"></span>' : '<span class="sem-stub"></span>'}
         </span>
         <span class="sem-label">S${number}</span>
       </button>
     `;
   });
 
+  const hasLine = targetLine !== null;
+  const style = `--count: ${count}${hasLine ? `; --t: ${targetLine.toFixed(3)}` : ""}`;
   return `
     <section class="card sem-chart">
       <div class="sem-chart-head">
-        <h2 class="block-title">SGPA by semester</h2>
-        <p class="cal-meta">Out of 10</p>
+        <h2 class="block-title">${title}</h2>
+        <p class="cal-meta">${meta}</p>
       </div>
-      <div class="sem-cols" role="radiogroup" aria-label="Semester" style="--count: ${count}">${columns.join("")}</div>
+      <div class="sem-cols" role="radiogroup" aria-label="Semester" style="${style}" ${hasLine ? "data-target" : ""}>${columns.join("")}</div>
     </section>
   `;
+}
+
+function sgpaMeasure(semester) {
+  const sgpa = Number(semester.summary?.sgpa);
+  if (!Number.isFinite(sgpa) || sgpa <= 0) return {};
+  return { value: sgpa / 10, text: sgpa.toFixed(2), detail: `SGPA ${sgpa.toFixed(2)}` };
 }
 
 function courseRow(course, semester) {
@@ -1266,7 +1359,7 @@ function renderResults() {
 
   return `
     ${pageHead("Results", current ? `Semester ${current} of ${semesterCount(list)}` : "", aside)}
-    ${semesterChart(list, selected)}
+    ${semesterChart(list, selected, { title: "SGPA by semester", meta: "Out of 10", action: "semester", measure: sgpaMeasure })}
     <div id="sem-body" class="panel sem-body">${semesterBody(selected)}</div>
   `;
 }
@@ -1710,7 +1803,7 @@ function route() {
   render({ animate: changed });
   if (changed) window.scrollTo({ top: 0 });
 
-  if (state.view === "attendance" && state.arg) {
+  if (state.view === "attendance" && state.arg && state.sub !== "semester") {
     const focus =
       state.sub === "subjects"
         ? document.querySelector(`.subject[data-code="${CSS.escape(state.arg)}"]`)
@@ -1781,6 +1874,20 @@ const ACTIONS = {
     else state.expanded.delete(code);
     row.dataset.open = String(open);
     button.setAttribute("aria-expanded", String(open));
+  },
+
+  "att-semester": (button) => {
+    document.querySelectorAll(".sem-col").forEach((col) => col.setAttribute("aria-checked", String(col === button)));
+    const semester = semesters().find((s) => s.number === Number(button.dataset.value));
+    if (semester?.current) {
+      state.sub = attendanceTab();
+      state.arg = null;
+    } else {
+      state.sub = "semester";
+      state.arg = button.dataset.value;
+    }
+    setHash(`#attendance/${state.sub}${state.arg ? `/${state.arg}` : ""}`);
+    swapPanel("#att-sem", attendanceBody());
   },
 
   semester: (button) => {
