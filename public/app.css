@@ -1726,6 +1726,10 @@ button.subject-head {
   letter-spacing: 0.08em;
 }
 
+.model-papers-card {
+  overflow: hidden;
+}
+
 .model-papers {
   display: flex;
   align-items: center;
@@ -1734,14 +1738,23 @@ button.subject-head {
   padding: 16px 18px;
   color: inherit;
   text-decoration: none;
-  transition: border-color 0.2s ease;
+}
+
+.model-papers-flow {
+  margin: 0;
+  padding: 14px 18px 16px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.model-papers-flow strong {
+  color: var(--text);
+  font-weight: 500;
 }
 
 @media (hover: hover) {
-  .model-papers:hover {
-    border-color: var(--line-strong);
-  }
-
   .model-papers:hover .row-go {
     color: var(--text);
     transform: translate(2px, -2px);

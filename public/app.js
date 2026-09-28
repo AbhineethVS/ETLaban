@@ -1344,15 +1344,24 @@ function renderMaterials() {
 
 function renderModelPapers() {
   return `
-    <a class="card model-papers" href="${MODEL_PAPERS_URL}" target="_blank" rel="noopener noreferrer">
-      <span class="file-tile" data-kind="papers">KTU</span>
-      <span class="mat-text">
-        <span class="mat-title">Semester model papers</span>
-        <span class="mat-meta">Official papers for every branch and semester</span>
-      </span>
-      <span class="row-go">${icon("external", 18)}</span>
-    </a>
-    <p class="muted-note">Opens KTU’s official model paper archive on ktu.edu.in.</p>
+    <div class="card model-papers-card">
+      <a class="model-papers" href="${MODEL_PAPERS_URL}" target="_blank" rel="noopener noreferrer">
+        <span class="file-tile" data-kind="papers">KTU</span>
+        <span class="mat-text">
+          <span class="mat-title">Semester model papers</span>
+          <span class="mat-meta">Opens ktu.edu.in</span>
+        </span>
+        <span class="row-go">${icon("external", 18)}</span>
+      </a>
+      <p class="model-papers-flow">
+        From the page it opens, go to
+        <strong>Regulations &amp; Syllabus</strong> →
+        <strong>B.Tech</strong> →
+        <strong>B.Tech Full Time 2024 Scheme</strong> →
+        <strong>Documents</strong>,
+        then pick the semester and the document.
+      </p>
+    </div>
   `;
 }
 
