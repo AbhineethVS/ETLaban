@@ -1765,8 +1765,10 @@ button.subject-head {
 }
 
 .model-papers-flow {
+  display: grid;
+  gap: 4px;
   margin: 0;
-  padding: 14px 18px 16px;
+  padding: 14px 18px 16px 38px;
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 0.84rem;
