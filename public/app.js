@@ -56,6 +56,7 @@ const ICONS = {
   trash: '<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l.9 12.2A1.5 1.5 0 0 0 8.9 20.5h6.2a1.5 1.5 0 0 0 1.5-1.3L17.5 7"/>',
   chevron: '<path d="m6.5 9.5 5.5 5.5 5.5-5.5"/>',
   download: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"/>',
+  share: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"/>',
   logout: '<path d="M14.5 4H18a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3.5"/><path d="M10 16.5 5.5 12 10 7.5M5.5 12H15"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   alert: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5M12 16.2v.3"/>',
@@ -1665,6 +1666,13 @@ function renderSettings() {
               : `<button class="btn btn-ghost btn-sm" type="button" data-action="install">${icon("download", 16)} Install</button>`,
           )}
         </div>
+        <div class="card group">
+          ${setting(
+            "Share with friends",
+            "Send ETLaban to classmates.",
+            `<button class="btn btn-ghost btn-sm" type="button" data-action="share">${icon("share", 16)} Share with friends</button>`,
+          )}
+        </div>
       </section>
 
       <section class="block">
@@ -1950,6 +1958,24 @@ const ACTIONS = {
   },
 
   install: () => promptInstall(),
+
+  share: async () => {
+    const url = `${location.origin}/`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "ETLaban", text: "Check out ETLaban", url });
+      } catch (error) {
+        if (error?.name !== "AbortError") toast("Couldn't share. Try again.", { icon: "check" });
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast("Link copied. Send it to your friends.", { icon: "check" });
+    } catch {
+      toast(url, { icon: "check" });
+    }
+  },
 
   "dismiss-install": () => {
     writeStorage(STORAGE.installDismissed, "1");
