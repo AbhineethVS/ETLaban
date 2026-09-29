@@ -56,6 +56,7 @@ const ICONS = {
   trash: '<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l.9 12.2A1.5 1.5 0 0 0 8.9 20.5h6.2a1.5 1.5 0 0 0 1.5-1.3L17.5 7"/>',
   chevron: '<path d="m6.5 9.5 5.5 5.5 5.5-5.5"/>',
   download: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"/>',
+  share: '<circle cx="18" cy="5" r="2.25"/><circle cx="6" cy="12" r="2.25"/><circle cx="18" cy="19" r="2.25"/><path d="m8.1 13.1 7.8 4.6M15.9 6.3 8.1 10.9"/>',
   logout: '<path d="M14.5 4H18a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3.5"/><path d="M10 16.5 5.5 12 10 7.5M5.5 12H15"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   alert: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5M12 16.2v.3"/>',
@@ -1664,6 +1665,11 @@ function renderSettings() {
               ? `<span class="live"><i></i>Installed</span>`
               : `<button class="btn btn-ghost btn-sm" type="button" data-action="install">${icon("download", 16)} Install</button>`,
           )}
+          ${setting(
+            "Share the app",
+            "Send the home page. It doesn't include your account.",
+            `<button class="btn btn-ghost btn-sm" type="button" data-action="share">${icon("share", 16)} Share with friends</button>`,
+          )}
         </div>
       </section>
 
@@ -1951,6 +1957,8 @@ const ACTIONS = {
 
   install: () => promptInstall(),
 
+  share: () => shareWithFriends(),
+
   "dismiss-install": () => {
     writeStorage(STORAGE.installDismissed, "1");
     installCard.classList.add("is-leaving");
@@ -2051,6 +2059,36 @@ window.addEventListener("hashchange", route);
 
 function isStandaloneApp() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+// The public home page, never /app, so a shared link doesn't imply a login.
+function appRootUrl() {
+  return new URL("/", window.location.href).href;
+}
+
+async function shareWithFriends() {
+  const url = appRootUrl();
+  const data = {
+    title: "ETLaban",
+    text: "A calm app for attendance, results and study materials.",
+    url,
+  };
+
+  if (typeof navigator.share === "function") {
+    try {
+      await navigator.share(data);
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Link copied", { icon: "check" });
+  } catch {
+    toast("Couldn't share the link", { icon: "alert", tone: "danger" });
+  }
 }
 
 function installDismissed() {
