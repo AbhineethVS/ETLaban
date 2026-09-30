@@ -45,3 +45,13 @@ export function registerServiceWorker() {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }
 }
+
+/** One extra try when the server hit a transient ETLab/Cloudflare error. */
+export async function fetchApi(url, init = {}) {
+  let response = await fetch(url, init);
+  if (response.status === 502 || response.status === 503) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    response = await fetch(url, init);
+  }
+  return response;
+}

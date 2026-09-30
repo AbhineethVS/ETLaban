@@ -1,4 +1,6 @@
+import random
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from http.cookiejar import CookieJar
 from urllib.error import HTTPError, URLError
@@ -9,9 +11,15 @@ from .tables import BASE_URL
 
 LOGIN_URL = f"{BASE_URL}/user/login"
 DASHBOARD_URL = f"{BASE_URL}/user/dashboard"
-USER_AGENT = "Mozilla/5.0 (compatible; ETLaban)"
-TIMEOUT = 20
-MAX_PARALLEL = 6
+# Real mobile Chrome UA: ETLab sits behind Cloudflare and often challenges bot-like clients.
+USER_AGENT = (
+    "Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Version/4.0 Chrome/124.0.0.0 Mobile Safari/537.36"
+)
+TIMEOUT = 25
+MAX_RETRIES = 4
+RETRY_STATUS = {408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524}
+MAX_PARALLEL = 4
 
 
 class EtlabError(Exception):
@@ -38,10 +46,72 @@ def is_etlab_url(url: str) -> bool:
 def _headers(extra=None):
     headers = {
         "User-Agent": USER_AGENT,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-IN,en;q=0.9",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
     }
     headers.update(extra or {})
     return headers
+
+
+def _cloudflare_block(html: str, status: int) -> bool:
+    if status not in (403, 503):
+        return False
+    lower = html.lower()
+    return "cloudflare" in lower or "cf-ray" in lower or "attention required" in lower
+
+
+def _retry_delay(attempt: int) -> None:
+    time.sleep(min(8.0, (0.5 * (2**attempt)) + random.uniform(0, 0.3)))
+
+
+def _raise_http_error(body: str, url: str, code: int, *, login: bool = False):
+    if _cloudflare_block(body, code):
+        raise EtlabError("ETLab's firewall blocked the server. Wait a minute and try again.")
+
+    if login:
+        raise EtlabError(f"ETLab login failed ({code})")
+
+    if code in (401, 403) and looks_like_login_page(body, url):
+        raise SessionExpired("Your ETLab session expired")
+
+    if code in (401, 403):
+        raise SessionExpired("Your ETLab session expired")
+
+    raise EtlabError(f"ETLab returned an error ({code})")
+
+
+def _fetch(url, data=None, extra_headers=None, opener=None, *, login: bool = False):
+    """GET or POST with retries on timeouts and transient HTTP errors."""
+    method = "POST" if data is not None else "GET"
+    last_network = None
+
+    for attempt in range(MAX_RETRIES):
+        request = Request(url, data=data, headers=_headers(extra_headers), method=method)
+        try:
+            open_fn = opener.open if opener else urlopen
+            with open_fn(request, timeout=TIMEOUT) as response:
+                html = response.read().decode("utf-8", errors="replace")
+                return html, response.geturl()
+        except HTTPError as error:
+            body = error.read().decode("utf-8", errors="replace")
+            url = error.geturl() or ""
+            if error.code in RETRY_STATUS or _cloudflare_block(body, error.code):
+                if attempt + 1 < MAX_RETRIES:
+                    _retry_delay(attempt)
+                    continue
+            _raise_http_error(body, url, error.code, login=login)
+        except (URLError, TimeoutError, OSError) as error:
+            last_network = error
+            if attempt + 1 < MAX_RETRIES:
+                _retry_delay(attempt)
+                continue
+            raise EtlabError("Could not reach ETLab. ETLab may be down or busy — try again in a minute.") from error
+
+    if last_network:
+        raise EtlabError("Could not reach ETLab. ETLab may be down or busy — try again in a minute.") from last_network
+    raise EtlabError("Could not reach ETLab. ETLab may be down or busy — try again in a minute.")
 
 
 class Client:
@@ -59,16 +129,7 @@ class Client:
         if ajax:
             extra["X-Requested-With"] = "XMLHttpRequest"
 
-        try:
-            with urlopen(Request(url, headers=_headers(extra)), timeout=TIMEOUT) as response:
-                html = response.read().decode("utf-8", errors="replace")
-                final_url = response.geturl()
-        except HTTPError as error:
-            if error.code in (401, 403):
-                raise SessionExpired("Your ETLab session expired") from error
-            raise EtlabError(f"ETLab returned an error ({error.code})") from error
-        except (URLError, TimeoutError, OSError) as error:
-            raise EtlabError("Could not reach ETLab") from error
+        html, final_url = _fetch(url, extra_headers=extra)
 
         if looks_like_login_page(html, final_url):
             raise SessionExpired("Your ETLab session expired")
@@ -108,13 +169,9 @@ def login(username: str, password: str) -> str:
     jar = CookieJar()
     opener = build_opener(HTTPCookieProcessor(jar))
 
-    def open_page(url, data=None, headers=None):
-        request = Request(url, data=data, headers=_headers(headers))
-        with opener.open(request, timeout=TIMEOUT) as response:
-            return response.read().decode("utf-8", errors="replace")
-
     try:
-        csrf = _extract_csrf_token(open_page(LOGIN_URL))
+        html, _ = _fetch(LOGIN_URL, opener=opener)
+        csrf = _extract_csrf_token(html)
         body = urlencode({
             "LoginForm[username]": username,
             "LoginForm[password]": password,
@@ -122,15 +179,19 @@ def login(username: str, password: str) -> str:
             "YII_CSRF_TOKEN": csrf,
             "yt0": "",
         }).encode("utf-8")
-        html = open_page(
+        html, _ = _fetch(
             LOGIN_URL,
             data=body,
-            headers={"Content-Type": "application/x-www-form-urlencoded", "Referer": LOGIN_URL, "Origin": BASE_URL},
+            extra_headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Referer": LOGIN_URL,
+                "Origin": BASE_URL,
+            },
+            opener=opener,
+            login=True,
         )
-    except HTTPError as error:
-        raise EtlabError(f"ETLab login failed ({error.code})") from error
-    except (URLError, TimeoutError, OSError) as error:
-        raise EtlabError("Could not reach ETLab") from error
+    except EtlabError:
+        raise
 
     if "Invalid username or password" in html or 'id="login-form"' in html:
         raise LoginFailed("Invalid username or password")
