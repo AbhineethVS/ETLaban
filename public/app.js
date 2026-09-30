@@ -791,6 +791,8 @@ function gauge(info, size = "lg") {
   `;
 }
 
+const ETLAB_NOTE = `<p class="muted-note etlab-note">All data here comes straight from ETLab. If something doesn't match, blame ETLab and curse them freely ;)<br />Pronounced as ET-Laban, like SignLaban :)</p>`;
+
 function renderHome() {
   const name = firstName();
   const title = `${greeting()}${name ? `, <em>${escapeHtml(name)}.</em>` : "."}`;
@@ -801,6 +803,7 @@ function renderHome() {
   if (!hasData()) {
     return `
       ${pageHead(title, kicker)}
+      ${ETLAB_NOTE}
       ${
         state.syncing
           ? firstSyncState()
@@ -831,6 +834,7 @@ function renderHome() {
 
   return `
     ${pageHead(title, kicker)}
+    ${ETLAB_NOTE}
     <div class="home-grid">
       <div class="home-col">
         ${
