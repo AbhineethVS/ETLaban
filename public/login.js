@@ -1,4 +1,4 @@
-import { clearCachedData, getSession, registerServiceWorker, rememberSignedIn } from "./auth.js";
+import { clearCachedData, fetchApi, getSession, registerServiceWorker, rememberSignedIn } from "./auth.js";
 import { initPublicUi, revealPage } from "./ui.js";
 
 registerServiceWorker();
@@ -108,7 +108,7 @@ form.addEventListener("submit", async (event) => {
   setBusy("busy");
 
   try {
-    const response = await fetch("/api/login", {
+    const response = await fetchApi("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password, remember: rememberInput.checked }),

@@ -1,4 +1,4 @@
-import { DATA_KEY, clearCachedData, getSession, registerServiceWorker, rememberSignedIn } from "./auth.js";
+import { DATA_KEY, clearCachedData, fetchApi, getSession, registerServiceWorker, rememberSignedIn } from "./auth.js";
 import { getThemePreference, initTheme, revealPage, setThemePreference } from "./ui.js";
 
 // Fetched live from ETLab by the backend, then cached on this device only.
@@ -545,7 +545,7 @@ function updateSyncStatus() {
 }
 
 async function fetchSource(key) {
-  const response = await fetch(SOURCES[key], { cache: "no-store", credentials: "same-origin" });
+  const response = await fetchApi(SOURCES[key], { cache: "no-store", credentials: "same-origin" });
   const body = await response.json().catch(() => ({}));
   if (response.status === 401) {
     const error = new Error(body.error || "Log in again");
@@ -560,7 +560,7 @@ async function fetchSource(key) {
 
 // "Keep me signed in": the server logs back in to ETLab with the password sealed in the cookie.
 async function renewSession() {
-  const response = await fetch("/api/renew", {
+  const response = await fetchApi("/api/renew", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",

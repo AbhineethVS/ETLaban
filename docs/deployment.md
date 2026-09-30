@@ -70,7 +70,7 @@ steps. Nothing in the code needs to change.
 | What you see                                          | Likely cause and fix                                                                 |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | *"Something went wrong on our side"* when logging in | `SESSION_SECRET` is missing. Add it and redeploy. The function logs say *SESSION_SECRET is not set*. |
-| *"Could not reach ETLab"*                             | ETLab is down or slow, or it is blocking Vercel's servers. Try again later. If it never works on Vercel but works locally, ETLab is probably blocking cloud servers. |
+| *"Could not reach ETLab"*                             | ETLab is down, slow, or Cloudflare throttled the server after a traffic spike. The app retries automatically; wait a minute and try again. If it never works on Vercel but works locally, ETLab is probably blocking cloud servers — contact your college IT. |
 | Everyone got logged out                               | `SESSION_SECRET` changed. Expected: just log in again.                               |
 | *"Your ETLab session expired"* often                   | ETLab ends sessions on its side, for example when you log in to ETLab somewhere else. Log in again. |
 | Old version still showing after a deploy              | Close and reopen the app. The service worker updates in the background.              |
