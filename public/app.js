@@ -2158,6 +2158,7 @@ await loadData();
 const canShowOffline = session.offline && hasData();
 
 if (!session.loggedIn && !canShowOffline) {
+  revealPage();
   window.location.replace(session.expired ? "/login?expired=1" : "/login");
 } else {
   state.session = session;

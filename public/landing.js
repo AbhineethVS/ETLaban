@@ -5,11 +5,14 @@ registerServiceWorker();
 initPublicUi();
 initTilt();
 
-const session = await getSession();
+let session;
+try {
+  session = await getSession();
+} finally {
+  if (!session?.loggedIn) revealPage();
+}
 if (session.loggedIn) {
   window.location.replace("/app");
-} else {
-  revealPage();
 }
 
 // Gentle 3D tilt on the product preview, desktop pointers only.

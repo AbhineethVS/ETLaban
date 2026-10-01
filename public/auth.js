@@ -24,9 +24,15 @@ export function clearCachedData() {
   }
 }
 
+const SESSION_TIMEOUT_MS = 8000;
+
 export async function getSession() {
   try {
-    const response = await fetch("/api/me", { cache: "no-store", credentials: "same-origin" });
+    const response = await fetch("/api/me", {
+      cache: "no-store",
+      credentials: "same-origin",
+      signal: AbortSignal.timeout(SESSION_TIMEOUT_MS),
+    });
     if (!response.ok) {
       throw new Error("Failed to read session");
     }
@@ -36,6 +42,8 @@ export async function getSession() {
     rememberSignedIn(loggedIn);
     return { ...me, loggedIn, expired: false };
   } catch {
+    // Drop a stale "signed in" flag so the next paint does not hide the whole page.
+    rememberSignedIn(false);
     return { loggedIn: false, expired: false, offline: true };
   }
 }
