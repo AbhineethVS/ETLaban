@@ -6,6 +6,9 @@ from .tables import data_tables, extract_links, parse_ratio, parse_tables
 
 ATTENDANCE_URL = "/ktuacademics/student/attendance"
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+# Each day is a separate ETLab request; cap detail fetches so /api/attendance
+# finishes inside Vercel's 60s limit (subject + month + N day pages).
+MAX_DAY_DETAILS = 24
 SUMMARY_KEYS = {
     "Duty Leave": "dutyLeave",
     "Total": "total",
@@ -134,9 +137,18 @@ def fetch(client: Client):
     month = parse_month_summary(month_html)
 
     days = [d for d in month["days"] if d["detailsUrl"] and d["date"] and is_etlab_url(d["detailsUrl"])]
-    pages = client.get_many([d["detailsUrl"] for d in days], ajax=True)
+    class_days = [
+        d
+        for d in days
+        if d.get("status") == "attendance" or (d.get("attendance") or {}).get("total", 0) > 0
+    ]
+    detail_days = class_days or days
+    detail_days.sort(key=lambda d: d["date"] or "")
+    if len(detail_days) > MAX_DAY_DETAILS:
+        detail_days = detail_days[-MAX_DAY_DETAILS:]
+    pages = client.get_many([d["detailsUrl"] for d in detail_days], ajax=True)
     details = []
-    for day, html in zip(days, pages):
+    for day, html in zip(detail_days, pages):
         detail = parse_day_detail(html, day["date"]) if html else None
         if detail:
             details.append(detail)
