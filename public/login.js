@@ -111,6 +111,7 @@ form.addEventListener("submit", async (event) => {
     const response = await fetchApi("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify({ username, password, remember: rememberInput.checked }),
     });
     const result = await response.json().catch(() => ({}));
@@ -121,6 +122,12 @@ form.addEventListener("submit", async (event) => {
     // A new login may be a different student on this device.
     clearCachedData();
     rememberSignedIn(true);
+    const session = await getSession();
+    if (!session.loggedIn) {
+      throw new Error(
+        "Your browser didn't keep the login cookie. Try again, use normal (not private) mode, or turn off Keep me signed in.",
+      );
+    }
     setBusy("done");
     setTimeout(() => window.location.replace("/app?sync=1"), 450);
   } catch (error) {

@@ -76,8 +76,8 @@ def _raise_http_error(body: str, url: str, code: int, *, login: bool = False):
     if code in (401, 403) and looks_like_login_page(body, url):
         raise SessionExpired("Your ETLab session expired")
 
-    if code in (401, 403):
-        raise SessionExpired("Your ETLab session expired")
+    if code == 403:
+        raise EtlabError("ETLab blocked the request. Wait a minute and try again.")
 
     raise EtlabError(f"ETLab returned an error ({code})")
 
