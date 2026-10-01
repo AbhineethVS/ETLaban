@@ -600,6 +600,7 @@ async function runSync({ fromLogin = false, quiet = false } = {}) {
 
   const signedOut = settled.find((r) => r.status === "rejected" && r.reason?.signedOut);
   if (signedOut) {
+    setSyncing(false);
     // A remembered cookie that still fails is kept by the server; drop it so /login doesn't bounce back here.
     if (signedOut.reason.renewable) await fetch("/api/logout", { method: "POST" }).catch(() => {});
     rememberSignedIn(false);
