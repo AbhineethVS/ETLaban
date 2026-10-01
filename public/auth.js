@@ -55,11 +55,19 @@ export function registerServiceWorker() {
 }
 
 /** One extra try when the server hit a transient ETLab/Cloudflare error. */
-export async function fetchApi(url, init = {}) {
-  let response = await fetch(url, init);
+export async function fetchApi(url, init = {}, { timeoutMs } = {}) {
+  const request = (extra = {}) => {
+    const next = { ...init, ...extra };
+    if (timeoutMs && !next.signal) {
+      next.signal = AbortSignal.timeout(timeoutMs);
+    }
+    return fetch(url, next);
+  };
+
+  let response = await request();
   if (response.status === 502 || response.status === 503) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
-    response = await fetch(url, init);
+    response = await request();
   }
   return response;
 }

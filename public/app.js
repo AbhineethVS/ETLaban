@@ -75,6 +75,7 @@ const state = {
   data: {},
   session: null,
   syncing: false,
+  syncPending: null,
   savedAt: null,
   lastSyncError: null,
   selectedDay: null,
@@ -490,6 +491,18 @@ function hasData() {
   );
 }
 
+function hasAttendanceData() {
+  return Boolean(state.data.attendanceSubject?.subjects?.length || state.data.attendanceMonth);
+}
+
+function persistSource(key, value) {
+  const cached = readCache();
+  cached[key] = value;
+  cached.savedAt = Date.now();
+  writeStorage(DATA_KEY, cached);
+  applyData(cached);
+}
+
 function syncStatusText() {
   if (state.syncing) return "Syncing with ETLab…";
   const synced = lastSynced();
@@ -544,8 +557,22 @@ function updateSyncStatus() {
   });
 }
 
+const SOURCE_TIMEOUT_MS = { attendance: 58000, results: 45000, materials: 45000 };
+
 async function fetchSource(key) {
-  const response = await fetchApi(SOURCES[key], { cache: "no-store", credentials: "same-origin" });
+  let response;
+  try {
+    response = await fetchApi(
+      SOURCES[key],
+      { cache: "no-store", credentials: "same-origin" },
+      { timeoutMs: SOURCE_TIMEOUT_MS[key] || 45000 },
+    );
+  } catch (error) {
+    if (error?.name === "TimeoutError") {
+      throw new Error(`${SOURCE_LABELS[key]} took too long. Try Sync again.`);
+    }
+    throw error;
+  }
   const body = await response.json().catch(() => ({}));
   if (response.status === 401) {
     const error = new Error(body.error || "Log in again");
@@ -577,10 +604,25 @@ async function runSync({ fromLogin = false, quiet = false } = {}) {
   if (state.syncing) return;
   setSyncing(true);
   state.lastSyncError = null;
+  const keys = Object.keys(SOURCES);
+  state.syncPending = new Set(keys);
   if (!hasData()) render();
 
-  const keys = Object.keys(SOURCES);
-  const settled = await Promise.allSettled(keys.map(fetchSource));
+  const settled = await Promise.allSettled(
+    keys.map(async (key) => {
+      try {
+        const value = await fetchSource(key);
+        persistSource(key, value);
+        state.syncPending.delete(key);
+        render();
+        return value;
+      } catch (error) {
+        state.syncPending.delete(key);
+        render();
+        throw error;
+      }
+    }),
+  );
 
   // One renewal for all sources, then retry only the ones that hit the expired session.
   const renewable = keys.filter((_, index) => settled[index].reason?.renewable);
@@ -600,6 +642,7 @@ async function runSync({ fromLogin = false, quiet = false } = {}) {
 
   const signedOut = settled.find((r) => r.status === "rejected" && r.reason?.signedOut);
   if (signedOut) {
+    state.syncPending = null;
     setSyncing(false);
     // A remembered cookie that still fails is kept by the server; drop it so /login doesn't bounce back here.
     if (signedOut.reason.renewable) await fetch("/api/logout", { method: "POST" }).catch(() => {});
@@ -620,6 +663,7 @@ async function runSync({ fromLogin = false, quiet = false } = {}) {
     writeStorage(DATA_KEY, cached);
   }
   applyData(cached);
+  state.syncPending = null;
   setSyncing(false);
   render();
 
@@ -721,15 +765,20 @@ function emptyState({ title, text, action = true }) {
   `;
 }
 
-function firstSyncState() {
+function firstSyncState(hint = "") {
   return `
     <section class="first-sync">
       <div class="first-sync-mark" aria-hidden="true"><span></span><span></span><span></span></div>
       <h2 class="empty-title display">Fetching your <em>ETLab</em> data</h2>
-      <p class="empty-text">Attendance, results and materials are on their way. The first sync can take a minute.</p>
+      <p class="empty-text">Attendance, results and materials are on their way. The first sync can take a minute.${hint ? ` ${hint}` : ""}</p>
       <div class="skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
     </section>
   `;
+}
+
+function attendanceSyncBanner() {
+  if (!state.syncing || !state.syncPending?.has("attendance")) return "";
+  return `<p class="notice rise" role="status">Still fetching attendance from ETLab… Results and materials may already be ready below.</p>`;
 }
 
 /* ---------------------------------------------------------------------------
@@ -836,6 +885,7 @@ function renderHome() {
   return `
     ${pageHead(title, kicker)}
     ${ETLAB_NOTE}
+    ${attendanceSyncBanner()}
     <div class="home-grid">
       <div class="home-col">
         ${
@@ -1005,7 +1055,11 @@ function renderAttendance() {
   const kicker = [semesterLabel(), `Target ${target()}%`].filter(Boolean).join(" · ");
 
   if (!list.length && !month) {
-    return `${pageHead("Attendance", kicker)}${state.syncing ? firstSyncState() : emptyState({ title: "No attendance <em>yet.</em>", text: "Sync with ETLab to see your subjects and calendar." })}`;
+    const waiting =
+      state.syncing && state.syncPending?.has("attendance")
+        ? firstSyncState("Other tabs may finish first.")
+        : emptyState({ title: "No attendance <em>yet.</em>", text: "Sync with ETLab to see your subjects and calendar." });
+    return `${pageHead("Attendance", kicker)}${waiting}`;
   }
 
   const summary = info
