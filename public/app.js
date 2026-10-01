@@ -75,7 +75,6 @@ const state = {
   data: {},
   session: null,
   syncing: false,
-  syncPending: null,
   savedAt: null,
   lastSyncError: null,
   selectedDay: null,
@@ -189,8 +188,8 @@ function parseFraction(value) {
 }
 
 function parseIsoDate(value) {
-  const [year, month, day] = String(value).split("-").map(Number);
-  return year ? new Date(year, month - 1, day) : null;
+  const match = String(value || "").match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  return match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : null;
 }
 
 function parseDmyDate(value) {
@@ -332,11 +331,17 @@ function monthModel() {
     return null;
   }
 
+  // Early in a month ETLab gives no dated links, so days can arrive without a
+  // date. Place them in the month the other days use, or else this month.
+  const anchor = month.days.map((day) => parseIsoDate(day.date)).find(Boolean) || new Date();
   const details = new Map((state.data.attendanceDetails || []).map((day) => [day.date, day.periods || []]));
   const days = month.days.map((day) => {
+    const dateObj =
+      parseIsoDate(day.date) || new Date(anchor.getFullYear(), anchor.getMonth(), Number(day.day) || 1);
+    const date = isoDate(dateObj);
     const present = Number(day.attendance?.present) || 0;
     const total = Number(day.attendance?.total) || 0;
-    const periods = (details.get(day.date) || [])
+    const periods = (details.get(date) || [])
       .slice()
       .sort((a, b) => a.period - b.period)
       .map((p) => ({ period: p.period, status: p.status, ...parseSubject(p.subject) }));
@@ -345,9 +350,9 @@ function monthModel() {
       : [...Array(present).fill("p"), ...Array(Math.max(0, total - present)).fill("a")];
     const kind = day.status === "attendance" && total > 0 ? "class" : day.status === "holiday" ? "holiday" : "none";
     return {
-      date: day.date,
+      date,
       day: day.day,
-      dateObj: parseIsoDate(day.date),
+      dateObj,
       kind,
       present,
       total,
@@ -491,18 +496,6 @@ function hasData() {
   );
 }
 
-function hasAttendanceData() {
-  return Boolean(state.data.attendanceSubject?.subjects?.length || state.data.attendanceMonth);
-}
-
-function persistSource(key, value) {
-  const cached = readCache();
-  cached[key] = value;
-  cached.savedAt = Date.now();
-  writeStorage(DATA_KEY, cached);
-  applyData(cached);
-}
-
 function syncStatusText() {
   if (state.syncing) return "Syncing with ETLab…";
   const synced = lastSynced();
@@ -600,29 +593,30 @@ async function renewSession() {
   throw error;
 }
 
-async function runSync({ fromLogin = false, quiet = false } = {}) {
+async function runSync(options = {}) {
   if (state.syncing) return;
   setSyncing(true);
   state.lastSyncError = null;
-  const keys = Object.keys(SOURCES);
-  state.syncPending = new Set(keys);
+  try {
+    await syncSources(options);
+  } catch (error) {
+    console.error(error);
+    state.lastSyncError = "Something went wrong while syncing. Try Sync again.";
+    toast(state.lastSyncError, { icon: "alert", tone: "danger", duration: 6000 });
+  } finally {
+    // Never leave the app stuck on "Fetching…", whatever went wrong above.
+    if (state.syncing) {
+      setSyncing(false);
+      render();
+    }
+  }
+}
+
+async function syncSources({ fromLogin = false, quiet = false } = {}) {
   if (!hasData()) render();
 
-  const settled = await Promise.allSettled(
-    keys.map(async (key) => {
-      try {
-        const value = await fetchSource(key);
-        persistSource(key, value);
-        state.syncPending.delete(key);
-        render();
-        return value;
-      } catch (error) {
-        state.syncPending.delete(key);
-        render();
-        throw error;
-      }
-    }),
-  );
+  const keys = Object.keys(SOURCES);
+  const settled = await Promise.allSettled(keys.map(fetchSource));
 
   // One renewal for all sources, then retry only the ones that hit the expired session.
   const renewable = keys.filter((_, index) => settled[index].reason?.renewable);
@@ -642,7 +636,6 @@ async function runSync({ fromLogin = false, quiet = false } = {}) {
 
   const signedOut = settled.find((r) => r.status === "rejected" && r.reason?.signedOut);
   if (signedOut) {
-    state.syncPending = null;
     setSyncing(false);
     // A remembered cookie that still fails is kept by the server; drop it so /login doesn't bounce back here.
     if (signedOut.reason.renewable) await fetch("/api/logout", { method: "POST" }).catch(() => {});
@@ -663,7 +656,6 @@ async function runSync({ fromLogin = false, quiet = false } = {}) {
     writeStorage(DATA_KEY, cached);
   }
   applyData(cached);
-  state.syncPending = null;
   setSyncing(false);
   render();
 
@@ -765,20 +757,15 @@ function emptyState({ title, text, action = true }) {
   `;
 }
 
-function firstSyncState(hint = "") {
+function firstSyncState() {
   return `
     <section class="first-sync">
       <div class="first-sync-mark" aria-hidden="true"><span></span><span></span><span></span></div>
       <h2 class="empty-title display">Fetching your <em>ETLab</em> data</h2>
-      <p class="empty-text">Attendance, results and materials are on their way. The first sync can take a minute.${hint ? ` ${hint}` : ""}</p>
+      <p class="empty-text">Attendance, results and materials are on their way. The first sync can take a minute.</p>
       <div class="skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
     </section>
   `;
-}
-
-function attendanceSyncBanner() {
-  if (!state.syncing || !state.syncPending?.has("attendance")) return "";
-  return `<p class="notice rise" role="status">Still fetching attendance from ETLab… Results and materials may already be ready below.</p>`;
 }
 
 /* ---------------------------------------------------------------------------
@@ -885,7 +872,6 @@ function renderHome() {
   return `
     ${pageHead(title, kicker)}
     ${ETLAB_NOTE}
-    ${attendanceSyncBanner()}
     <div class="home-grid">
       <div class="home-col">
         ${
@@ -1055,11 +1041,7 @@ function renderAttendance() {
   const kicker = [semesterLabel(), `Target ${target()}%`].filter(Boolean).join(" · ");
 
   if (!list.length && !month) {
-    const waiting =
-      state.syncing && state.syncPending?.has("attendance")
-        ? firstSyncState("Other tabs may finish first.")
-        : emptyState({ title: "No attendance <em>yet.</em>", text: "Sync with ETLab to see your subjects and calendar." });
-    return `${pageHead("Attendance", kicker)}${waiting}`;
+    return `${pageHead("Attendance", kicker)}${state.syncing ? firstSyncState() : emptyState({ title: "No attendance <em>yet.</em>", text: "Sync with ETLab to see your subjects and calendar." })}`;
   }
 
   const summary = info
@@ -1815,7 +1797,16 @@ function updateNav() {
 }
 
 function render({ animate = false } = {}) {
-  app.innerHTML = RENDERERS[state.view]();
+  try {
+    app.innerHTML = RENDERERS[state.view]();
+  } catch (error) {
+    // Odd data from ETLab shouldn't blank the page or break sync.
+    console.error(error);
+    app.innerHTML = `${pageHead(VIEWS[state.view].title)}${emptyState({
+      title: "Couldn't show <em>this.</em>",
+      text: "Something in the saved data didn't look right. Syncing again usually fixes it.",
+    })}`;
+  }
   document.title = `${VIEWS[state.view].title} · ETLaban`;
   updateNav();
   updateSyncStatus();

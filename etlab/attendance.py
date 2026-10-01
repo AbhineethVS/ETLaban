@@ -1,11 +1,13 @@
 import re
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 
 from .client import Client, EtlabError, is_etlab_url
 from .tables import data_tables, extract_links, parse_ratio, parse_tables
 
 ATTENDANCE_URL = "/ktuacademics/student/attendance"
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+IST = timezone(timedelta(hours=5, minutes=30))
 # Each day is a separate ETLab request; cap detail fetches so /api/attendance
 # finishes inside Vercel's 60s limit (subject + month + N day pages).
 MAX_DAY_DETAILS = 24
@@ -75,9 +77,12 @@ def parse_month_summary(html: str):
             "detailsUrl": link.get("dataLoad"),
         })
 
-    if year_month:
-        for day in days:
-            day["date"] = day["date"] or f"{year_month}-{day['day']:02d}"
+    # Early in a month (e.g. the 1st) no day has a link yet, so nothing carries
+    # a date. The report always shows the current month, so fall back to that.
+    if year_month is None:
+        year_month = datetime.now(IST).strftime("%Y-%m")
+    for day in days:
+        day["date"] = day["date"] or f"{year_month}-{day['day']:02d}"
 
     return {
         "student": {"rollNumber": row[0]["text"], "name": row[1]["text"]},
