@@ -569,9 +569,10 @@ async function fetchSource(key) {
   const body = await response.json().catch(() => ({}));
   if (response.status === 401) {
     const error = new Error(body.error || "Log in again");
-    error.signedOut = true;
-    error.expired = Boolean(body.expired);
     error.renewable = Boolean(body.renewable);
+    error.expired = Boolean(body.expired);
+    // A renewable 401 still has a valid ETLaban cookie; try /api/renew first.
+    error.signedOut = !error.renewable;
     throw error;
   }
   if (!response.ok) throw new Error(body.error || `Couldn't load ${SOURCE_LABELS[key]}`);
@@ -580,14 +581,31 @@ async function fetchSource(key) {
 
 // "Keep me signed in": the server logs back in to ETLab with the password sealed in the cookie.
 async function renewSession() {
-  const response = await fetchApi("/api/renew", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "same-origin",
-  });
+  let response;
+  try {
+    response = await fetchApi(
+      "/api/renew",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+      },
+      { timeoutMs: 25000 },
+    );
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error instanceof TypeError) {
+      throw new Error("ETLab took too long to sign you back in. Tap Sync and try again.");
+    }
+    throw error;
+  }
   if (response.ok) return;
   const body = await response.json().catch(() => ({}));
-  const error = new Error(body.error || "Couldn't sign you back in to ETLab");
+  const error = new Error(
+    body.error ||
+      (response.status === 504 || response.status === 502
+        ? "ETLab is busy. Tap Sync and try again."
+        : "Couldn't sign you back in to ETLab"),
+  );
   error.signedOut = response.status === 401;
   error.expired = Boolean(body.expired);
   throw error;

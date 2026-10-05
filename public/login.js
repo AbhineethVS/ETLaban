@@ -108,12 +108,16 @@ form.addEventListener("submit", async (event) => {
   setBusy("busy");
 
   try {
-    const response = await fetchApi("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ username, password, remember: rememberInput.checked }),
-    });
+    const response = await fetchApi(
+      "/api/login",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ username, password, remember: rememberInput.checked }),
+      },
+      { timeoutMs: 28000 },
+    );
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(result.error || "Login failed. Check your details and try again.");
@@ -132,8 +136,8 @@ form.addEventListener("submit", async (event) => {
     setTimeout(() => window.location.replace("/app?sync=1"), 450);
   } catch (error) {
     setBusy("idle");
-    const offline = error instanceof TypeError;
-    showError(offline ? "Can't reach the ETLaban server. Is it running?" : error.message);
+    const offline = error instanceof TypeError || error?.name === "TimeoutError";
+    showError(offline ? "Can't reach ETLab right now. Wait a moment and try again." : error.message);
   }
 });
 
