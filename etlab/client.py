@@ -18,6 +18,11 @@ USER_AGENT = (
 )
 TIMEOUT = 25
 MAX_RETRIES = 4
+# Login/renew must finish well under Vercel's 60s function limit.
+# Four retries × 25s × (GET login + POST + dashboard) used to hit 504.
+LOGIN_TIMEOUT = 8
+LOGIN_RETRIES = 2
+LOGIN_BUDGET = 20
 RETRY_STATUS = {408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524}
 MAX_PARALLEL = 4
 
@@ -82,29 +87,39 @@ def _raise_http_error(body: str, url: str, code: int, *, login: bool = False):
     raise EtlabError(f"ETLab returned an error ({code})")
 
 
-def _fetch(url, data=None, extra_headers=None, opener=None, *, login: bool = False):
+def _seconds_left(deadline):
+    if deadline is None:
+        return None
+    return deadline - time.monotonic()
+
+
+def _fetch(url, data=None, extra_headers=None, opener=None, *, login: bool = False, timeout=TIMEOUT, retries=MAX_RETRIES, deadline=None):
     """GET or POST with retries on timeouts and transient HTTP errors."""
     method = "POST" if data is not None else "GET"
     last_network = None
 
-    for attempt in range(MAX_RETRIES):
+    for attempt in range(retries):
+        remaining = _seconds_left(deadline)
+        if remaining is not None and remaining <= 0.4:
+            raise EtlabError("Could not reach ETLab. ETLab may be down or busy — try again in a minute.")
+        request_timeout = timeout if remaining is None else min(timeout, max(1.5, remaining))
         request = Request(url, data=data, headers=_headers(extra_headers), method=method)
         try:
             open_fn = opener.open if opener else urlopen
-            with open_fn(request, timeout=TIMEOUT) as response:
+            with open_fn(request, timeout=request_timeout) as response:
                 html = response.read().decode("utf-8", errors="replace")
                 return html, response.geturl()
         except HTTPError as error:
             body = error.read().decode("utf-8", errors="replace")
             url = error.geturl() or ""
             if error.code in RETRY_STATUS or _cloudflare_block(body, error.code):
-                if attempt + 1 < MAX_RETRIES:
+                if attempt + 1 < retries and (_seconds_left(deadline) is None or _seconds_left(deadline) > 1):
                     _retry_delay(attempt)
                     continue
             _raise_http_error(body, url, error.code, login=login)
         except (URLError, TimeoutError, OSError) as error:
             last_network = error
-            if attempt + 1 < MAX_RETRIES:
+            if attempt + 1 < retries and (_seconds_left(deadline) is None or _seconds_left(deadline) > 1):
                 _retry_delay(attempt)
                 continue
             raise EtlabError("Could not reach ETLab. ETLab may be down or busy — try again in a minute.") from error
@@ -120,7 +135,7 @@ class Client:
     def __init__(self, cookie: str):
         self.cookie = cookie
 
-    def get(self, path_or_url: str, ajax: bool = False) -> str:
+    def get(self, path_or_url: str, ajax: bool = False, deadline=None, timeout=TIMEOUT, retries=MAX_RETRIES) -> str:
         url = urljoin(BASE_URL, path_or_url)
         if not is_etlab_url(url):
             raise EtlabError("Refusing to fetch a non-ETLab URL")
@@ -129,7 +144,7 @@ class Client:
         if ajax:
             extra["X-Requested-With"] = "XMLHttpRequest"
 
-        html, final_url = _fetch(url, extra_headers=extra)
+        html, final_url = _fetch(url, extra_headers=extra, timeout=timeout, retries=retries, deadline=deadline)
 
         if looks_like_login_page(html, final_url):
             raise SessionExpired("Your ETLab session expired")
@@ -160,7 +175,7 @@ def _extract_csrf_token(html: str) -> str:
     return match.group(1)
 
 
-def login(username: str, password: str) -> str:
+def login(username: str, password: str, verify: bool = True) -> str:
     """Log in to ETLab and return the session cookie header. The password is not kept."""
     username = (username or "").strip()
     if not username or not password:
@@ -168,9 +183,11 @@ def login(username: str, password: str) -> str:
 
     jar = CookieJar()
     opener = build_opener(HTTPCookieProcessor(jar))
+    deadline = time.monotonic() + LOGIN_BUDGET
+    fetch_kw = {"timeout": LOGIN_TIMEOUT, "retries": LOGIN_RETRIES, "deadline": deadline}
 
     try:
-        html, _ = _fetch(LOGIN_URL, opener=opener)
+        html, _ = _fetch(LOGIN_URL, opener=opener, **fetch_kw)
         csrf = _extract_csrf_token(html)
         body = urlencode({
             "LoginForm[username]": username,
@@ -189,6 +206,7 @@ def login(username: str, password: str) -> str:
             },
             opener=opener,
             login=True,
+            **fetch_kw,
         )
     except EtlabError:
         raise
@@ -200,11 +218,12 @@ def login(username: str, password: str) -> str:
     if "CETSESSIONID=" not in cookie:
         raise LoginFailed("ETLab didn't start a session. Try again.")
 
-    # Make sure the new session can actually open the dashboard.
-    try:
-        Client(cookie).get(DASHBOARD_URL)
-    except SessionExpired as error:
-        raise LoginFailed("ETLab sent you back to the login page. Try again.") from error
+    # First login checks the dashboard. Renew skips it so we stay under 60s.
+    if verify:
+        try:
+            Client(cookie).get(DASHBOARD_URL, deadline=deadline, timeout=LOGIN_TIMEOUT, retries=LOGIN_RETRIES)
+        except SessionExpired as error:
+            raise LoginFailed("ETLab sent you back to the login page. Try again.") from error
     return cookie
 
 

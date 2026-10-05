@@ -66,7 +66,7 @@ def _renew(current, secure: bool):
     if not current or not current["password"]:
         return _error(401, "Your ETLab session expired. Log in again.", [session.clear_cookie(secure)], expired=True)
     try:
-        etlab_cookie = client.login(current["username"], current["password"])
+        etlab_cookie = client.login(current["username"], current["password"], verify=False)
     except client.LoginFailed:
         # Most likely the ETLab password changed; forget the old one.
         message = "ETLab didn't accept your saved password. Log in again."
