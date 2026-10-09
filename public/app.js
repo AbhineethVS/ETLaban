@@ -526,6 +526,31 @@ function applyData(cached) {
   }
 }
 
+// Older semester requests can fail independently when ETLab is slow. Keep
+// semesters from the last successful sync instead of letting a partial results
+// response make their attendance and grades disappear.
+function mergeResults(fresh, cached) {
+  if (!fresh?.semesters?.length || !cached?.semesters?.length) return fresh;
+
+  const current = Number(fresh.currentSemester);
+  const semesters = new Map(
+    cached.semesters
+      .filter((semester) => !current || Number(semester.number) <= current)
+      .map((semester) => [Number(semester.number), semester]),
+  );
+  fresh.semesters.forEach((semester) => semesters.set(Number(semester.number), semester));
+
+  return {
+    ...fresh,
+    semesters: [...semesters.values()]
+      .map((semester) => ({
+        ...semester,
+        current: Number(semester.number) === current,
+      }))
+      .sort((a, b) => Number(a.number) - Number(b.number)),
+  };
+}
+
 async function loadData() {
   applyData(readCache());
 }
@@ -665,8 +690,12 @@ async function syncSources({ fromLogin = false, quiet = false } = {}) {
   const cached = readCache();
   const failed = [];
   settled.forEach((result, index) => {
-    if (result.status === "fulfilled") cached[keys[index]] = result.value;
-    else failed.push(keys[index]);
+    const key = keys[index];
+    if (result.status === "fulfilled") {
+      cached[key] = key === "results" ? mergeResults(result.value, cached.results) : result.value;
+    } else {
+      failed.push(key);
+    }
   });
 
   if (failed.length < keys.length) {
