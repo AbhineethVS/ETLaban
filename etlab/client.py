@@ -23,6 +23,11 @@ MAX_RETRIES = 4
 LOGIN_TIMEOUT = 8
 LOGIN_RETRIES = 2
 LOGIN_BUDGET = 20
+# Data routes (results/attendance/materials) used default 4×25s retries per
+# page, so /api/results hung to a 60s 504 when ETLab was slow.
+DATA_TIMEOUT = 8
+DATA_RETRIES = 2
+DATA_BUDGET = 42
 RETRY_STATUS = {408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524}
 MAX_PARALLEL = 4
 
@@ -132,10 +137,16 @@ def _fetch(url, data=None, extra_headers=None, opener=None, *, login: bool = Fal
 class Client:
     """Fetches ETLab pages with one student's session cookie."""
 
-    def __init__(self, cookie: str):
+    def __init__(self, cookie: str, deadline=None, timeout=TIMEOUT, retries=MAX_RETRIES):
         self.cookie = cookie
+        self.deadline = deadline
+        self.timeout = timeout
+        self.retries = retries
 
-    def get(self, path_or_url: str, ajax: bool = False, deadline=None, timeout=TIMEOUT, retries=MAX_RETRIES) -> str:
+    def seconds_left(self):
+        return _seconds_left(self.deadline)
+
+    def get(self, path_or_url: str, ajax: bool = False, deadline=None, timeout=None, retries=None) -> str:
         url = urljoin(BASE_URL, path_or_url)
         if not is_etlab_url(url):
             raise EtlabError("Refusing to fetch a non-ETLab URL")
@@ -144,7 +155,13 @@ class Client:
         if ajax:
             extra["X-Requested-With"] = "XMLHttpRequest"
 
-        html, final_url = _fetch(url, extra_headers=extra, timeout=timeout, retries=retries, deadline=deadline)
+        html, final_url = _fetch(
+            url,
+            extra_headers=extra,
+            timeout=self.timeout if timeout is None else timeout,
+            retries=self.retries if retries is None else retries,
+            deadline=self.deadline if deadline is None else deadline,
+        )
 
         if looks_like_login_page(html, final_url):
             raise SessionExpired("Your ETLab session expired")
@@ -164,6 +181,9 @@ class Client:
         urls = list(urls)
         if not urls:
             return []
+        remaining = self.seconds_left()
+        if remaining is not None and remaining <= 0.5:
+            return [None] * len(urls)
         with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL, len(urls))) as pool:
             return list(pool.map(fetch, urls))
 

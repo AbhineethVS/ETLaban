@@ -9,6 +9,7 @@
 """
 
 import json
+import time
 import traceback
 from dataclasses import dataclass, field
 
@@ -115,7 +116,13 @@ def handle(method: str, path: str, headers, body: bytes = b"") -> Response:
             if not current:
                 return _error(401, "Log in to continue", expired=False)
             try:
-                return _json(200, DATA_ROUTES[path](client.Client(current["cookie"])))
+                etlab = client.Client(
+                    current["cookie"],
+                    deadline=time.monotonic() + client.DATA_BUDGET,
+                    timeout=client.DATA_TIMEOUT,
+                    retries=client.DATA_RETRIES,
+                )
+                return _json(200, DATA_ROUTES[path](etlab))
             except client.SessionExpired:
                 if not current["password"]:
                     raise

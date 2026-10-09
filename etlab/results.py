@@ -156,7 +156,12 @@ def fetch(client: Client):
     current_html = client.get(RESULTS_URL)
     current = selected_semester(current_html) or 1
 
-    earlier = client.get_many(SEMESTER_URL.format(n) for n in range(1, current))
+    earlier_urls = [SEMESTER_URL.format(n) for n in range(1, current)]
+    remaining = client.seconds_left() if hasattr(client, "seconds_left") else None
+    if remaining is not None and remaining < 8:
+        earlier = [None] * len(earlier_urls)
+    else:
+        earlier = client.get_many(earlier_urls)
     pages = {n: html for n, html in zip(range(1, current), earlier) if html}
     pages[current] = current_html
 

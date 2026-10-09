@@ -550,7 +550,7 @@ function updateSyncStatus() {
   });
 }
 
-const SOURCE_TIMEOUT_MS = { attendance: 58000, results: 45000, materials: 45000 };
+const SOURCE_TIMEOUT_MS = { attendance: 48000, results: 48000, materials: 48000 };
 
 async function fetchSource(key) {
   let response;
