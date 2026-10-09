@@ -65,7 +65,9 @@ export async function fetchApi(url, init = {}, { timeoutMs } = {}) {
   };
 
   let response = await request();
-  if (response.status === 502 || response.status === 503) {
+  // Only retry short POSTs (login/renew). Retrying a 40s results fetch doubles load.
+  const method = String(init.method || "GET").toUpperCase();
+  if (method !== "GET" && (response.status === 502 || response.status === 503)) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     response = await request();
   }

@@ -151,7 +151,11 @@ def fetch(client: Client):
     detail_days.sort(key=lambda d: d["date"] or "")
     if len(detail_days) > MAX_DAY_DETAILS:
         detail_days = detail_days[-MAX_DAY_DETAILS:]
-    pages = client.get_many([d["detailsUrl"] for d in detail_days], ajax=True)
+    remaining = client.seconds_left() if hasattr(client, "seconds_left") else None
+    if remaining is not None and remaining < 10:
+        detail_days, pages = [], []
+    else:
+        pages = client.get_many([d["detailsUrl"] for d in detail_days], ajax=True)
     details = []
     for day, html in zip(detail_days, pages):
         detail = parse_day_detail(html, day["date"]) if html else None
