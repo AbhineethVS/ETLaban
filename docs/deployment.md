@@ -73,6 +73,7 @@ steps. Nothing in the code needs to change.
 | *"Could not reach ETLab"*                             | ETLab is down, slow, or Cloudflare throttled the server after a traffic spike. The app retries automatically; wait a minute and try again. If it never works on Vercel but works locally, ETLab is probably blocking cloud servers — contact your college IT. |
 | `/api/renew` 504 / function timeout                    | ETLab was too slow to finish a remembered login inside 60s. Login/renew now stop by ~20s and return 502 instead of hanging. Tap Sync. |
 | `/api/results` 504 / function timeout                  | Fetching every semester retried too long. Data routes now stop by ~42s and return what they have (current semester, attendance without extra day pages). Tap Sync. |
+| All three data routes return 502 together              | ETLab or Cloudflare stalled while the app started three simultaneous fetches. Sync now fetches one source at a time and stops after the first upstream failure, so one outage does not create three retries per student. |
 | Everyone got logged out                               | `SESSION_SECRET` changed. Expected: just log in again.                               |
 | *"Your ETLab session expired"* often                   | ETLab ends sessions on its side, for example when you log in to ETLab somewhere else. Log in again. |
 | Old version still showing after a deploy              | Close and reopen the app. The service worker updates in the background.              |

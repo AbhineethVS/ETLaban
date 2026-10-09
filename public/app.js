@@ -575,7 +575,11 @@ async function fetchSource(key) {
     error.signedOut = !error.renewable;
     throw error;
   }
-  if (!response.ok) throw new Error(body.error || `Couldn't load ${SOURCE_LABELS[key]}`);
+  if (!response.ok) {
+    const error = new Error(body.error || `Couldn't load ${SOURCE_LABELS[key]}`);
+    error.upstreamUnavailable = response.status === 429 || response.status >= 500;
+    throw error;
+  }
   return body;
 }
 
@@ -594,7 +598,9 @@ async function renewSession() {
     );
   } catch (error) {
     if (error?.name === "TimeoutError" || error instanceof TypeError) {
-      throw new Error("ETLab took too long to sign you back in. Tap Sync and try again.");
+      const timeout = new Error("ETLab took too long to sign you back in. Tap Sync and try again.");
+      timeout.upstreamUnavailable = true;
+      throw timeout;
     }
     throw error;
   }
@@ -608,6 +614,7 @@ async function renewSession() {
   );
   error.signedOut = response.status === 401;
   error.expired = Boolean(body.expired);
+  error.upstreamUnavailable = response.status === 429 || response.status >= 500;
   throw error;
 }
 
@@ -633,22 +640,39 @@ async function runSync(options = {}) {
 async function syncSources({ fromLogin = false, quiet = false } = {}) {
   if (!hasData()) render();
 
-  const keys = Object.keys(SOURCES);
-  const settled = await Promise.allSettled(keys.map(fetchSource));
+  // Do not hit ETLab with three requests at once. Results and materials are
+  // cheaper, so load them before attendance's extra calendar requests.
+  const keys = ["results", "materials", "attendance"];
+  const settled = [];
+  let renewed = false;
 
-  // One renewal for all sources, then retry only the ones that hit the expired session.
-  const renewable = keys.filter((_, index) => settled[index].reason?.renewable);
-  if (renewable.length) {
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
     try {
-      await renewSession();
-      const retried = await Promise.allSettled(renewable.map(fetchSource));
-      renewable.forEach((key, index) => {
-        settled[keys.indexOf(key)] = retried[index];
-      });
+      let value;
+      try {
+        value = await fetchSource(key);
+      } catch (error) {
+        if (!error.renewable) throw error;
+        if (renewed) {
+          error.signedOut = true;
+          throw error;
+        }
+        await renewSession();
+        renewed = true;
+        value = await fetchSource(key);
+      }
+      settled.push({ status: "fulfilled", value });
     } catch (error) {
-      renewable.forEach((key) => {
-        settled[keys.indexOf(key)] = { status: "rejected", reason: error };
-      });
+      settled.push({ status: "rejected", reason: error });
+      // One ETLab outage previously produced three simultaneous 502s. Stop
+      // immediately; retrying the other sources only amplifies the outage.
+      if (error.upstreamUnavailable || error.signedOut) {
+        while (settled.length < keys.length) {
+          settled.push({ status: "rejected", reason: error });
+        }
+        break;
+      }
     }
   }
 
