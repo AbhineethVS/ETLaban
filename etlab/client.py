@@ -26,7 +26,7 @@ LOGIN_BUDGET = 20
 # Data routes (results/attendance/materials) used default 4×25s retries per
 # page, so /api/results hung to a 60s 504 when ETLab was slow.
 DATA_TIMEOUT = 8
-DATA_RETRIES = 2
+DATA_RETRIES = 1
 DATA_BUDGET = 42
 RETRY_STATUS = {408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524}
 MAX_PARALLEL = 4
