@@ -19,13 +19,15 @@ class handler(BaseHTTPRequestHandler):
 
     def _dispatch(self, method):
         url = urlparse(self.path)
-        rewritten = parse_qs(url.query).get("path", [""])[0]
+        params = parse_qs(url.query)
+        rewritten = params.pop("path", [""])[0]
         path = f"/api/{rewritten}" if rewritten else url.path
+        query = {name: values[0] for name, values in params.items()}
 
         length = int(self.headers.get("content-length") or 0)
         body = self.rfile.read(min(length, MAX_BODY + 1)) if length else b""
 
-        response = handle(method, path, self.headers, body)
+        response = handle(method, path, self.headers, body, query)
         self.send_response(response.status)
         for name, value in response.headers:
             self.send_header(name, value)

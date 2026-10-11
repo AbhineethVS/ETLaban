@@ -6,6 +6,8 @@
     POST /api/logout                             -> clears it
     GET  /api/me                                 -> {loggedIn, username}
     GET  /api/attendance | /api/results | /api/materials   (fetched live from ETLab)
+         ?known=...          attendance: days the app already has, skipped if unchanged
+         ?cachedSemester=N   results: skip earlier semesters if N is still current
 """
 
 import json
@@ -75,8 +77,8 @@ def _renew(current, secure: bool):
     return _start_session(etlab_cookie, current["username"], secure, current["password"])
 
 
-def handle(method: str, path: str, headers, body: bytes = b"") -> Response:
-    """headers: any case-insensitive mapping with .get()."""
+def handle(method: str, path: str, headers, body: bytes = b"", query=None) -> Response:
+    """headers: any case-insensitive mapping with .get(). query: {name: value} from the URL."""
     path = "/" + path.strip("/")
     secure = _is_secure(headers)
 
@@ -122,7 +124,7 @@ def handle(method: str, path: str, headers, body: bytes = b"") -> Response:
                     timeout=client.DATA_TIMEOUT,
                     retries=client.DATA_RETRIES,
                 )
-                return _json(200, DATA_ROUTES[path](etlab))
+                return _json(200, DATA_ROUTES[path](etlab, query or {}))
             except client.SessionExpired:
                 if not current["password"]:
                     raise

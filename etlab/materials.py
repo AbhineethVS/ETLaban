@@ -68,7 +68,7 @@ def _page_number(url: str):
         return None
 
 
-def fetch(client: Client):
+def fetch(client: Client, query=None):
     first = client.get(MATERIALS_URL)
     page_urls = sorted(
         {
