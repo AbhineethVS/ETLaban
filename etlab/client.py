@@ -147,6 +147,13 @@ class Client:
         return _seconds_left(self.deadline)
 
     def get(self, path_or_url: str, ajax: bool = False, deadline=None, timeout=None, retries=None) -> str:
+        return self._request(path_or_url, ajax=ajax, deadline=deadline, timeout=timeout, retries=retries)
+
+    def post(self, path_or_url: str, fields: dict) -> str:
+        """Submit an ETLab form, e.g. to pick a different month on a report."""
+        return self._request(path_or_url, data=urlencode(fields).encode())
+
+    def _request(self, path_or_url, data=None, ajax=False, deadline=None, timeout=None, retries=None) -> str:
         url = urljoin(BASE_URL, path_or_url)
         if not is_etlab_url(url):
             raise EtlabError("Refusing to fetch a non-ETLab URL")
@@ -154,9 +161,12 @@ class Client:
         extra = {"Cookie": self.cookie}
         if ajax:
             extra["X-Requested-With"] = "XMLHttpRequest"
+        if data is not None:
+            extra["Content-Type"] = "application/x-www-form-urlencoded"
 
         html, final_url = _fetch(
             url,
+            data,
             extra_headers=extra,
             timeout=self.timeout if timeout is None else timeout,
             retries=self.retries if retries is None else retries,

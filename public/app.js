@@ -60,6 +60,8 @@ const ICONS = {
   close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
   trash: '<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l.9 12.2A1.5 1.5 0 0 0 8.9 20.5h6.2a1.5 1.5 0 0 0 1.5-1.3L17.5 7"/>',
   chevron: '<path d="m6.5 9.5 5.5 5.5 5.5-5.5"/>',
+  left: '<path d="m14.5 6.5-5.5 5.5 5.5 5.5"/>',
+  right: '<path d="m9.5 6.5 5.5 5.5-5.5 5.5"/>',
   download: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"/>',
   share: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"/>',
   logout: '<path d="M14.5 4H18a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3.5"/><path d="M10 16.5 5.5 12 10 7.5M5.5 12H15"/>',
@@ -329,12 +331,28 @@ function semesterAttendance(semester) {
 }
 
 function monthModel() {
-  if (state.cache.month !== undefined) return state.cache.month;
-  const month = state.data.attendanceMonth;
-  if (!month?.days?.length) {
-    state.cache.month = null;
-    return null;
-  }
+  if (state.cache.month === undefined) state.cache.month = buildMonth(state.data.attendanceMonth);
+  return state.cache.month;
+}
+
+function previousMonthModel() {
+  if (state.cache.previousMonth === undefined) state.cache.previousMonth = buildMonth(state.data.attendancePreviousMonth);
+  return state.cache.previousMonth;
+}
+
+// The month the calendar shows: whichever holds the selected day.
+function shownMonth() {
+  const previous = previousMonthModel();
+  if (previous?.days.some((d) => d.date === state.selectedDay)) return previous;
+  return monthModel() || previous;
+}
+
+function findDay(date) {
+  return [monthModel(), previousMonthModel()].flatMap((model) => model?.days || []).find((d) => d.date === date);
+}
+
+function buildMonth(month) {
+  if (!month?.days?.length) return null;
 
   // Early in a month ETLab gives no dated links, so days can arrive without a
   // date. Place them in the month the other days use, or else this month.
@@ -370,7 +388,7 @@ function monthModel() {
   const first = days[0].dateObj;
   const summary = month.summary || {};
   const fraction = parseFraction(summary.total);
-  state.cache.month = {
+  return {
     year: first.getFullYear(),
     monthIndex: first.getMonth(),
     days,
@@ -378,7 +396,6 @@ function monthModel() {
     summaryText: fraction ? `${fraction.present} of ${fraction.total}` : "",
     monthPercent: summary.percentage || "",
   };
-  return state.cache.month;
 }
 
 function missedBySubject() {
@@ -397,8 +414,7 @@ function missedBySubject() {
   return map;
 }
 
-function defaultSelectedDay() {
-  const model = monthModel();
+function defaultSelectedDay(model = monthModel() || previousMonthModel()) {
   if (!model) return null;
   const today = isoDate(new Date());
   const past = model.classDays.filter((d) => d.date <= today);
@@ -520,13 +536,14 @@ function applyData(cached) {
   state.data = {
     attendanceSubject: cached.attendance?.subject || null,
     attendanceMonth: cached.attendance?.month || null,
+    attendancePreviousMonth: cached.attendance?.previousMonth || null,
     attendanceDetails: cached.attendance?.dayDetails || [],
     results: cached.results || null,
     materials: cached.materials || [],
   };
   state.savedAt = cached.savedAt || null;
   state.cache = {};
-  if (!state.selectedDay || !monthModel()?.days.some((d) => d.date === state.selectedDay)) {
+  if (!state.selectedDay || !findDay(state.selectedDay)) {
     state.selectedDay = defaultSelectedDay();
   }
 }
@@ -621,7 +638,8 @@ async function renewSession() {
 function sourceParams(key, cached, { full = false } = {}) {
   if (key === "attendance") {
     const have = new Set((cached.attendance?.dayDetails || []).map((day) => day.date));
-    const known = (cached.attendance?.month?.days || [])
+    const days = [...(cached.attendance?.previousMonth?.days || []), ...(cached.attendance?.month?.days || [])];
+    const known = days
       .filter((day) => have.has(day.date) && day.attendance)
       .map((day) => `${day.date}:${day.attendance.present}/${day.attendance.total}`);
     return known.length ? { known: known.join(",") } : {};
@@ -879,7 +897,7 @@ function homeStatus(list) {
   const spare =
     tightest.canMiss === 0
       ? `has <strong>no classes to spare</strong>`
-      : `can miss <strong>${plural(tightest.canMiss, "more class", "more classes")}</strong>`;
+      : `can miss <strong class="text-good">${plural(tightest.canMiss, "more class", "more classes")}</strong>`;
   return {
     tone: close ? "close" : "safe",
     title: close ? "Close to the line" : "You're on track",
@@ -938,7 +956,8 @@ function renderHome() {
     .slice()
     .sort((a, b) => a.percent - b.percent)
     .slice(0, 3);
-  const recent = (month?.classDays || []).filter((d) => d.date <= isoDate(new Date())).slice(-7);
+  const classDays = [...(previousMonthModel()?.classDays || []), ...(month?.classDays || [])];
+  const recent = classDays.filter((d) => d.date <= isoDate(new Date())).slice(-7);
   const scores = assessmentItems()
     .flatMap((section) => section.items)
     .filter((item) => item.status === "scored")
@@ -1033,7 +1052,8 @@ function subjectNote(s) {
 
 // `finished` rows belong to an earlier semester: no advice, nothing to expand.
 function subjectRow(s, { compact = false, finished = false } = {}) {
-  const note = finished ? "" : ` · <span class="subject-note">${subjectNote(s)}</span>`;
+  const good = s.tone !== "risk" && s.canMiss > 0;
+  const note = finished ? "" : ` · <span class="subject-note" ${good ? "data-good" : ""}>${subjectNote(s)}</span>`;
   const inner = `
     <span class="subject-text">
       <span class="subject-name">${escapeHtml(compact ? s.short : s.name)}</span>
@@ -1198,7 +1218,7 @@ function renderSubjectList() {
 }
 
 function renderCalendar() {
-  const model = monthModel();
+  const model = shownMonth();
   if (!model) return `<p class="muted-note">The month calendar isn't available yet.</p>`;
 
   const firstWeekday = (new Date(model.year, model.monthIndex, 1).getDay() + 6) % 7; // Monday first
@@ -1221,10 +1241,7 @@ function renderCalendar() {
   return `
     <div class="calendar-layout">
       <section class="card calendar">
-        <div class="cal-head">
-          <h2 class="cal-title">${formatMonth.format(new Date(model.year, model.monthIndex, 1))} <span>${model.year}</span></h2>
-          ${model.summaryText ? `<p class="cal-meta">${model.summaryText} · <strong>${escapeHtml(model.monthPercent)}</strong></p>` : ""}
-        </div>
+        ${calendarHead(model)}
         <div class="cal-week" aria-hidden="true">${["M", "T", "W", "T", "F", "S", "S"].map((w) => `<span>${w}</span>`).join("")}</div>
         <div class="cal-grid">${blanks.join("")}${cells.join("")}</div>
         <div class="cal-legend" aria-hidden="true">
@@ -1238,8 +1255,28 @@ function renderCalendar() {
   `;
 }
 
+function calendarHead(model) {
+  const title = `<h2 class="cal-title">${formatMonth.format(new Date(model.year, model.monthIndex, 1))} <span>${model.year}</span></h2>`;
+  const meta = model.summaryText
+    ? `<p class="cal-meta">${model.summaryText} · <strong>${escapeHtml(model.monthPercent)}</strong></p>`
+    : "";
+  const previous = previousMonthModel();
+  if (!previous || !monthModel()) return `<div class="cal-head">${title}${meta}</div>`;
+
+  const onPrevious = model === previous;
+  return `
+    <div class="cal-head">
+      <div>${title}${meta}</div>
+      <div class="cal-nav">
+        <button class="icon-btn" type="button" data-action="cal-month" data-value="previous" aria-label="Previous month" ${onPrevious ? "disabled" : ""}>${icon("left", 20)}</button>
+        <button class="icon-btn" type="button" data-action="cal-month" data-value="current" aria-label="Next month" ${onPrevious ? "" : "disabled"}>${icon("right", 20)}</button>
+      </div>
+    </div>
+  `;
+}
+
 function dayPanel() {
-  const day = monthModel()?.days.find((d) => d.date === state.selectedDay);
+  const day = findDay(state.selectedDay);
   if (!day) return `<p class="muted-note">Pick a day to see each period.</p>`;
 
   const head = `
@@ -1987,6 +2024,13 @@ const ACTIONS = {
     writeStorage(STORAGE.attendanceTab, tab);
     setHash(`#attendance/${tab}`);
     swapPanel("#att-body", tab === "calendar" ? renderCalendar() : renderSubjectList());
+  },
+
+  "cal-month": (button) => {
+    const model = button.dataset.value === "previous" ? previousMonthModel() : monthModel();
+    state.selectedDay = defaultSelectedDay(model);
+    setHash(`#attendance/calendar/${state.selectedDay}`);
+    swapPanel("#att-body", renderCalendar());
   },
 
   "select-day": (button) => {

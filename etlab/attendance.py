@@ -7,6 +7,8 @@ from .tables import data_tables, extract_links, parse_ratio, parse_tables
 
 ATTENDANCE_URL = "/ktuacademics/student/attendance"
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+OPTION_RE = re.compile(r'<option value="(\d+)"( selected="selected")?')
+CSRF_RE = re.compile(r'"YII_CSRF_TOKEN"\s*:\s*"([^"]+)"')
 IST = timezone(timedelta(hours=5, minutes=30))
 # Each day is a separate ETLab request; cap detail fetches so /api/attendance
 # finishes inside Vercel's 60s limit (subject + month + N day pages).
@@ -49,6 +51,30 @@ def parse_subject_summary(html: str):
     }
 
 
+def _select(html: str, name: str):
+    """Option values of a <select> on the month report, and the selected one."""
+    match = re.search(rf'<select[^>]*name="{name}"[^>]*>(.*?)</select>', html, re.S)
+    options = OPTION_RE.findall(match.group(1)) if match else []
+    return [value for value, _ in options], next((value for value, selected in options if selected), None)
+
+
+def _shown_month(html: str):
+    """'2026-09' for the month the report is showing, from its month/year pickers."""
+    month, year = _select(html, "month")[1], _select(html, "year")[1]
+    return f"{year}-{int(month):02d}" if month and year else None
+
+
+def _previous_month_form(html: str):
+    """The month picker's fields for the month before the one shown, if the semester has one."""
+    months, month = _select(html, "month")
+    year, semester = _select(html, "year")[1], _select(html, "semester")[1]
+    if not (month and year and semester) or months.index(month) == 0:
+        return None
+    previous = months[months.index(month) - 1]
+    previous_year = int(year) if int(previous) < int(month) else int(year) - 1
+    return {"semester": semester, "month": previous, "year": str(previous_year)}
+
+
 def parse_month_summary(html: str):
     table = _main_table(html)
     headers = table["headers"]
@@ -78,9 +104,9 @@ def parse_month_summary(html: str):
         })
 
     # Early in a month (e.g. the 1st) no day has a link yet, so nothing carries
-    # a date. The report always shows the current month, so fall back to that.
+    # a date. Use the month the report's picker shows, or else this month.
     if year_month is None:
-        year_month = datetime.now(IST).strftime("%Y-%m")
+        year_month = _shown_month(html) or datetime.now(IST).strftime("%Y-%m")
     for day in days:
         day["date"] = day["date"] or f"{year_month}-{day['day']:02d}"
 
@@ -141,6 +167,24 @@ def _known_days(value):
     return known
 
 
+def _fetch_previous_month(client: Client, url: str, month_html: str):
+    """The previous month's report, posted through the same picker a student would use. Optional."""
+    form = _previous_month_form(month_html)
+    if form is None:
+        return None
+    token = CSRF_RE.search(month_html)
+    if token:
+        form["YII_CSRF_TOKEN"] = token.group(1)
+    try:
+        html = client.post(url, form)
+        # Only trust it if ETLab really switched to the month we asked for.
+        if _shown_month(html) != f"{form['year']}-{int(form['month']):02d}":
+            return None
+        return parse_month_summary(html)
+    except (EtlabError, IndexError, ValueError):
+        return None
+
+
 def fetch(client: Client, query=None):
     links = _find_report_links(client.get(ATTENDANCE_URL))
     if "subject" not in links or "month" not in links:
@@ -151,8 +195,11 @@ def fetch(client: Client, query=None):
 
     subject = parse_subject_summary(subject_html)
     month = parse_month_summary(month_html)
+    previous = _fetch_previous_month(client, links["month"], month_html)
+    months = [month, previous] if previous else [month]
 
-    days = [d for d in month["days"] if d["detailsUrl"] and d["date"] and is_etlab_url(d["detailsUrl"])]
+    all_days = [d for m in months for d in m["days"]]
+    days = [d for d in all_days if d["detailsUrl"] and d["date"] and is_etlab_url(d["detailsUrl"])]
     class_days = [
         d
         for d in days
@@ -184,7 +231,13 @@ def fetch(client: Client, query=None):
         if detail:
             details.append(detail)
 
-    for day in month["days"]:
+    for day in all_days:
         day.pop("detailsUrl", None)
 
-    return {"subject": subject, "month": month, "dayDetails": details, "reusedDetails": reused}
+    return {
+        "subject": subject,
+        "month": month,
+        "previousMonth": previous,
+        "dayDetails": details,
+        "reusedDetails": reused,
+    }

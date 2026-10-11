@@ -164,6 +164,18 @@ html.is-syncing .sync-line {
   backdrop-filter: saturate(1.4) blur(18px);
 }
 
+/* Solid strip under the phone's gesture bar. Android tints its handle from the
+   pixels below it; the blurred glass changed while content animated during
+   load/sync, which made the handle flicker. */
+.tabbar::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: env(safe-area-inset-bottom);
+  background: var(--bg);
+  pointer-events: none;
+}
+
 .tab-indicator {
   position: absolute;
   top: 12px;
@@ -654,6 +666,10 @@ a.mat-head:active {
   font-weight: 500;
 }
 
+.overview-text strong.text-good {
+  color: var(--success);
+}
+
 .overview-stats {
   grid-area: stats;
   display: grid;
@@ -836,6 +852,11 @@ button.subject-head {
 
 .subject-note {
   color: var(--tone-text);
+}
+
+.subject-note[data-good],
+.text-good {
+  color: var(--success);
 }
 
 .subject-pct {
@@ -1066,6 +1087,21 @@ button.subject-head {
   font-weight: 500;
 }
 
+.cal-head > div > .cal-meta {
+  margin-top: 8px;
+}
+
+.cal-nav {
+  display: flex;
+  align-self: center;
+  margin-right: -6px;
+}
+
+.cal-nav .icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .cal-week,
 .cal-grid {
   display: grid;
@@ -1229,6 +1265,10 @@ button.subject-head {
 .period-status {
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.period:not([data-status="absent"]) .period-status {
+  color: var(--success);
 }
 
 .period[data-status="absent"] .period-no,

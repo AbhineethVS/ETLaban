@@ -23,6 +23,7 @@
   --on-ink: #f7f5f0;
   --danger: #c2372b;
   --danger-soft: rgba(194, 55, 43, 0.08);
+  --success: #2e7d4f;
   --dot: rgba(22, 21, 18, 0.12);
   --shadow-card:
     0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 1px 2px rgba(22, 21, 18, 0.04),
@@ -58,6 +59,7 @@
   --on-ink: #0f0f0e;
   --danger: #f07a6e;
   --danger-soft: rgba(240, 122, 110, 0.1);
+  --success: #7ccf98;
   --dot: rgba(237, 235, 230, 0.09);
   --shadow-card:
     0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.3),
