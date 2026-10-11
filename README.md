@@ -164,7 +164,7 @@ All routes return JSON.
 | POST   | `/api/renew`      | Log back in to ETLab with the password saved by *Keep me signed in*. |
 | POST   | `/api/logout`     | Clear the session cookie.                                    |
 | GET    | `/api/me`         | `{ loggedIn, username }`                                     |
-| GET    | `/api/attendance` | Subject totals, the month calendar, and each day's periods.  |
+| GET    | `/api/attendance` | Subject totals, this month's and last month's calendar, and each day's periods. |
 | GET    | `/api/results`    | Every semester so far: marks, grades, SGPA and CGPA.         |
 | GET    | `/api/materials`  | Notes and files from ETLab.                                  |
 
