@@ -152,13 +152,16 @@ def parse_page(html: str):
     }
 
 
-def fetch(client: Client):
+def fetch(client: Client, query=None):
     current_html = client.get(RESULTS_URL)
     current = selected_semester(current_html) or 1
 
+    # Finished semesters rarely change. When the app already has them for this
+    # same current semester, skip those pages and let it keep its copy.
+    earlier_skipped = (query or {}).get("cachedSemester") == str(current)
     earlier_urls = [SEMESTER_URL.format(n) for n in range(1, current)]
     remaining = client.seconds_left() if hasattr(client, "seconds_left") else None
-    if remaining is not None and remaining < 8:
+    if earlier_skipped or (remaining is not None and remaining < 8):
         earlier = [None] * len(earlier_urls)
     else:
         earlier = client.get_many(earlier_urls)
@@ -175,6 +178,7 @@ def fetch(client: Client):
     now = next(s for s in semesters if s["current"])
     return {
         "currentSemester": current,
+        "earlierSkipped": earlier_skipped,
         "semesterCount": max(SEMESTER_COUNT, current),
         "cgpa": cgpa,
         "semesters": semesters,

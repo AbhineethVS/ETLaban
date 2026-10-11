@@ -9,6 +9,10 @@ const SOURCES = {
 };
 const SOURCE_LABELS = { attendance: "attendance", results: "results", materials: "materials" };
 const STALE_AFTER_MS = 3 * 60 * 60 * 1000;
+// Earlier semesters are refetched on a manual Sync, or at most this often otherwise.
+const FULL_RESULTS_EVERY_MS = 24 * 60 * 60 * 1000;
+// After a failed sync, wait before hitting ETLab again so retries don't pile on.
+const SYNC_COOLDOWN_MS = 30 * 1000;
 
 const VIEWS = {
   home: { title: "Home", icon: "home" },
@@ -30,6 +34,7 @@ const STORAGE = {
   attendanceTab: "better-etlab-attendance-tab",
   installDismissed: "better-etlab-install-dismissed",
   installAutoPrompted: "better-etlab-install-auto-prompted",
+  syncCooldown: "better-etlab-sync-cooldown",
 };
 
 const TARGETS = [75, 80, 85];
@@ -552,11 +557,12 @@ function updateSyncStatus() {
 
 const SOURCE_TIMEOUT_MS = { attendance: 48000, results: 48000, materials: 48000 };
 
-async function fetchSource(key) {
+async function fetchSource(key, params = {}) {
+  const query = new URLSearchParams(params).toString();
   let response;
   try {
     response = await fetchApi(
-      SOURCES[key],
+      query ? `${SOURCES[key]}?${query}` : SOURCES[key],
       { cache: "no-store", credentials: "same-origin" },
       { timeoutMs: SOURCE_TIMEOUT_MS[key] || 45000 },
     );
@@ -611,8 +617,51 @@ async function renewSession() {
   throw error;
 }
 
+// Tell the server what this device already has so it can skip those ETLab pages.
+function sourceParams(key, cached, { full = false } = {}) {
+  if (key === "attendance") {
+    const have = new Set((cached.attendance?.dayDetails || []).map((day) => day.date));
+    const known = (cached.attendance?.month?.days || [])
+      .filter((day) => have.has(day.date) && day.attendance)
+      .map((day) => `${day.date}:${day.attendance.present}/${day.attendance.total}`);
+    return known.length ? { known: known.join(",") } : {};
+  }
+  if (key === "results" && !full) {
+    const results = cached.results;
+    const recent = Date.now() - (cached.resultsFullAt || 0) < FULL_RESULTS_EVERY_MS;
+    const complete = results?.currentSemester && results.semesters?.length >= results.currentSemester;
+    if (recent && complete) return { cachedSemester: results.currentSemester };
+  }
+  return {};
+}
+
+// Fill in the parts the server skipped from this device's copy.
+function mergeSource(key, value, cached) {
+  if (key === "attendance" && value.reusedDetails?.length) {
+    const reused = new Set(value.reusedDetails);
+    const kept = (cached.attendance?.dayDetails || []).filter((day) => reused.has(day.date));
+    return { ...value, dayDetails: [...kept, ...(value.dayDetails || [])] };
+  }
+  if (key === "results" && value.earlierSkipped) {
+    const earlier = (cached.results?.semesters || []).filter((s) => s.number < value.currentSemester);
+    return { ...value, semesters: [...earlier, ...value.semesters], cgpa: cached.results?.cgpa ?? value.cgpa };
+  }
+  return value;
+}
+
+function cooldownLeft() {
+  return Math.max(0, (Number(localStorage.getItem(STORAGE.syncCooldown)) || 0) - Date.now());
+}
+
 async function runSync(options = {}) {
   if (state.syncing) return;
+  const wait = cooldownLeft();
+  if (wait) {
+    if (!options.quiet) {
+      toast(`ETLab is busy. Try again in ${Math.ceil(wait / 1000)} s.`, { icon: "alert", duration: 4000 });
+    }
+    return;
+  }
   setSyncing(true);
   state.lastSyncError = null;
   try {
@@ -630,18 +679,20 @@ async function runSync(options = {}) {
   }
 }
 
-async function syncSources({ fromLogin = false, quiet = false } = {}) {
+async function syncSources({ fromLogin = false, quiet = false, full = false } = {}) {
   if (!hasData()) render();
 
   const keys = Object.keys(SOURCES);
-  const settled = await Promise.allSettled(keys.map(fetchSource));
+  const params = Object.fromEntries(keys.map((key) => [key, sourceParams(key, readCache(), { full })]));
+  const fetchKey = (key) => fetchSource(key, params[key]);
+  const settled = await Promise.allSettled(keys.map(fetchKey));
 
   // One renewal for all sources, then retry only the ones that hit the expired session.
   const renewable = keys.filter((_, index) => settled[index].reason?.renewable);
   if (renewable.length) {
     try {
       await renewSession();
-      const retried = await Promise.allSettled(renewable.map(fetchSource));
+      const retried = await Promise.allSettled(renewable.map(fetchKey));
       renewable.forEach((key, index) => {
         settled[keys.indexOf(key)] = retried[index];
       });
@@ -665,9 +716,13 @@ async function syncSources({ fromLogin = false, quiet = false } = {}) {
   const cached = readCache();
   const failed = [];
   settled.forEach((result, index) => {
-    if (result.status === "fulfilled") cached[keys[index]] = result.value;
+    if (result.status === "fulfilled") cached[keys[index]] = mergeSource(keys[index], result.value, cached);
     else failed.push(keys[index]);
   });
+  const results = cached.results;
+  if (settled[keys.indexOf("results")].status === "fulfilled" && !results.earlierSkipped) {
+    if (results.semesters?.length >= results.currentSemester) cached.resultsFullAt = Date.now();
+  }
 
   if (failed.length < keys.length) {
     cached.savedAt = Date.now();
@@ -678,11 +733,14 @@ async function syncSources({ fromLogin = false, quiet = false } = {}) {
   render();
 
   if (!failed.length) {
+    localStorage.removeItem(STORAGE.syncCooldown);
     if (!quiet) toast(fromLogin ? "You're all set. Data is up to date." : "Synced with ETLab", { icon: "check" });
     return;
   }
 
   const reason = settled.find((r) => r.status === "rejected").reason;
+  // Being offline doesn't load ETLab, so only cool down when the server answered.
+  if (!(reason instanceof TypeError)) writeStorage(STORAGE.syncCooldown, String(Date.now() + SYNC_COOLDOWN_MS));
   state.lastSyncError =
     reason instanceof TypeError
       ? "Can't reach ETLaban. Check your connection."
@@ -1920,7 +1978,7 @@ function toast(message, { icon: iconName, tone, action, duration = 4200 } = {}) 
    ------------------------------------------------------------------------ */
 
 const ACTIONS = {
-  sync: () => runSync(),
+  sync: () => runSync({ full: true }),
 
   "att-tab": (button) => {
     updateSegmented(button);

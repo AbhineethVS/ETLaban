@@ -1,4 +1,4 @@
-const CACHE_NAME = "etlaban-v22";
+const CACHE_NAME = "etlaban-v23";
 const APP_SHELL = [
   "./",
   "./login",

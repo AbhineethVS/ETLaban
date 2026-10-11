@@ -130,7 +130,18 @@ def _find_report_links(html: str):
     return found
 
 
-def fetch(client: Client):
+def _known_days(value):
+    """'2026-10-03:5/6,...' -> {date: (present, total)} for days the app already has details for."""
+    known = {}
+    for item in (value or "").split(",")[:62]:
+        date, _, ratio = item.partition(":")
+        present, _, total = ratio.partition("/")
+        if DATE_RE.fullmatch(date) and present.isdigit() and total.isdigit():
+            known[date] = (int(present), int(total))
+    return known
+
+
+def fetch(client: Client, query=None):
     links = _find_report_links(client.get(ATTENDANCE_URL))
     if "subject" not in links or "month" not in links:
         raise EtlabError("ETLab's attendance page changed; couldn't find the reports")
@@ -149,6 +160,17 @@ def fetch(client: Client):
     ]
     detail_days = class_days or days
     detail_days.sort(key=lambda d: d["date"] or "")
+
+    # A past day's periods rarely change. Skip days the app already has whose
+    # present/total still match; it keeps its own copy of those.
+    known = _known_days((query or {}).get("known"))
+
+    def unchanged(day):
+        ratio = day.get("attendance") or {}
+        return known.get(day["date"]) == (ratio.get("present"), ratio.get("total"))
+
+    reused = [d["date"] for d in detail_days if unchanged(d)]
+    detail_days = [d for d in detail_days if not unchanged(d)]
     if len(detail_days) > MAX_DAY_DETAILS:
         detail_days = detail_days[-MAX_DAY_DETAILS:]
     remaining = client.seconds_left() if hasattr(client, "seconds_left") else None
@@ -165,4 +187,4 @@ def fetch(client: Client):
     for day in month["days"]:
         day.pop("detailsUrl", None)
 
-    return {"subject": subject, "month": month, "dayDetails": details}
+    return {"subject": subject, "month": month, "dayDetails": details, "reusedDetails": reused}

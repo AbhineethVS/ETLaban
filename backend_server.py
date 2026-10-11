@@ -11,7 +11,7 @@ import os
 import socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from etlab.api import MAX_BODY, handle
 
@@ -48,11 +48,13 @@ class EtlabanHandler(BaseHTTPRequestHandler):
         self._route("POST")
 
     def _route(self, method):
-        path = urlparse(self.path).path
+        url = urlparse(self.path)
+        path = url.path
         if path.startswith("/api/"):
+            query = {name: values[0] for name, values in parse_qs(url.query).items()}
             length = int(self.headers.get("content-length") or 0)
             body = self.rfile.read(min(length, MAX_BODY + 1)) if length else b""
-            response = handle(method, path, self.headers, body)
+            response = handle(method, path, self.headers, body, query)
             self._send(response.status, response.body, response.headers)
         elif method == "GET":
             self._serve_static(path)

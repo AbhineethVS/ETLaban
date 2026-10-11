@@ -172,6 +172,11 @@ If your ETLab session has expired, data routes answer `401` with `"expired": tru
 If you chose *Keep me signed in*, the answer also has `"renewable": true`: the app calls
 `/api/renew` once and retries. Otherwise it asks you to log in again.
 
+To keep load on ETLab down, the app tells the server what it already has.
+`/api/attendance?known=2026-10-03:5/6,...` skips day pages whose present/total haven't changed
+(listed back in `reusedDetails`). `/api/results?cachedSemester=5` skips earlier semesters while
+semester 5 is still current (`earlierSkipped: true`). Tapping Sync, or once a day, fetches every semester.
+
 ## Contributing
 
 Bug reports, ideas and pull requests are welcome. Please read
