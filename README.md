@@ -139,6 +139,8 @@ public/                            Everything the browser loads
   ui.js, theme-init.js             Theme switching and small shared behaviour
   sw.js, manifest.webmanifest      Installable app (PWA) support
   icon.svg, *.png                  App icons
+  robots.txt, sitemap.xml, llms.txt For search engines and AI assistants
+  og-image.png                     Link preview image (source: docs/og-image.html)
 
 etlab/                             The backend: log in, fetch pages, read them
   api.py                           The API routes
