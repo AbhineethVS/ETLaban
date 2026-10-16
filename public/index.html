@@ -5,12 +5,110 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#f7f5f0" />
     <script src="theme-init.js" data-check-session></script>
-    <meta name="description" content="Same data, less suffering. Your ETLab attendance, results and study materials in one calm, fast app." />
+    <meta name="description" content="A free, unofficial ETLab app for CET Trivandrum students. Check your attendance by subject, see how many classes you can miss, and read your results and study materials on your phone." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="ETLaban" />
-    <title>ETLaban · same data, less suffering</title>
+    <title>ETLaban · ETLab attendance and results for CET Trivandrum</title>
+    <link rel="canonical" href="https://etlaban.vercel.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ETLaban" />
+    <meta property="og:url" content="https://etlaban.vercel.app/" />
+    <meta property="og:title" content="ETLaban · same data, less suffering" />
+    <meta property="og:description" content="Your ETLab attendance, results and study materials in one calm, fast app. Made for CET Trivandrum students." />
+    <meta property="og:image" content="https://etlaban.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ETLaban: same data, less suffering." />
+    <meta property="og:locale" content="en_IN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ETLaban · same data, less suffering" />
+    <meta name="twitter:description" content="Your ETLab attendance, results and study materials in one calm, fast app. Made for CET Trivandrum students." />
+    <meta name="twitter:image" content="https://etlaban.vercel.app/og-image.png" />
+    <!-- Structured data for search and AI answers. A JSON data block, not a script, so the CSP allows it. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "@id": "https://etlaban.vercel.app/#app",
+            "name": "ETLaban",
+            "alternateName": "ETLab for CET",
+            "url": "https://etlaban.vercel.app/",
+            "description": "A free, unofficial ETLab client for students of College of Engineering Trivandrum (CET). Shows attendance by subject, how many classes you can miss, an attendance calendar, semester results with SGPA and CGPA, and study materials.",
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Any (web browser, installable PWA)",
+            "browserRequirements": "Requires JavaScript",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "INR" },
+            "featureList": [
+              "Attendance percentage for every subject",
+              "How many classes you can miss, or need to attend, to stay above 75%, 80% or 85%",
+              "Attendance calendar for this month and last month",
+              "Results for every semester with SGPA, CGPA, grades and sessional marks",
+              "Searchable ETLab study materials and saved links",
+              "Installable app with light and dark mode"
+            ],
+            "audience": {
+              "@type": "EducationalAudience",
+              "educationalRole": "student",
+              "audienceType": "Students of College of Engineering Trivandrum"
+            },
+            "screenshot": "https://etlaban.vercel.app/og-image.png",
+            "sameAs": ["https://github.com/AbhineethVS/ETLaban"],
+            "license": "https://opensource.org/licenses/MIT"
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://etlaban.vercel.app/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is ETLaban?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "ETLaban is a free, unofficial app for the ETLab portal used by College of Engineering Trivandrum (CET). You log in with your normal ETLab account and it shows your attendance, results and study materials in a fast, phone-friendly layout."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is ETLaban safe? Does it store my ETLab password?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Your password is never stored on the ETLaban server. It is sent to ETLab once to log in. If you tick Keep me signed in, it is kept encrypted in a cookie in your own browser so the app can log you back in. Your data is kept on your phone, not on the server, and the code is open source."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How many classes can I miss and still keep 75% attendance?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "ETLaban works it out for every subject from your ETLab attendance. It shows how many more classes you can miss and stay above your target, or how many you need to attend in a row to get back above it. You can set the target to 75%, 80% or 85%."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is ETLaban official?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. ETLaban is an independent student project. It is not made by or connected to ETLab, Etuwa Concepts, CET or KTU. It only reads your data and never changes anything on ETLab. Check ETLab itself for anything official, like exam eligibility."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I install ETLaban on my phone?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. ETLaban is a web app you can add to your home screen on Android or iPhone. It opens like a normal app and still shows your last synced data when you are offline."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -168,6 +266,52 @@
             <p>Notes and files from ETLab in one searchable list, plus the links you save yourself.</p>
           </li>
         </ol>
+      </section>
+
+      <section class="faq" aria-labelledby="faq-label">
+        <h2 id="faq-label" class="kicker section-label" data-reveal>Questions</h2>
+        <div class="faq-list" data-reveal>
+          <details class="faq-item">
+            <summary>What is ETLaban?</summary>
+            <p>
+              ETLaban is a free, unofficial app for the ETLab portal used by College of Engineering Trivandrum (CET).
+              You log in with your normal ETLab account and it shows your attendance, results and study materials in a
+              fast, phone-friendly layout.
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary>Is it safe? Does it store my ETLab password?</summary>
+            <p>
+              Your password is never stored on the ETLaban server. It is sent to ETLab once to log in. If you tick
+              <em>Keep me signed in</em>, it is kept encrypted in a cookie in your own browser so the app can log you
+              back in. Your data is kept on your phone, not on the server, and the
+              <a href="https://github.com/AbhineethVS/ETLaban" target="_blank" rel="noopener noreferrer">code is open source</a>.
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary>How many classes can I miss and still keep 75%?</summary>
+            <p>
+              ETLaban works it out for every subject from your ETLab attendance. It shows how many more classes you can
+              miss and stay above your target, or how many you need to attend in a row to get back above it. You can
+              set the target to 75%, 80% or 85%.
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary>Is ETLaban official?</summary>
+            <p>
+              No. ETLaban is an independent student project. It is not made by or connected to ETLab, Etuwa Concepts,
+              CET or KTU. It only reads your data and never changes anything on ETLab. Check ETLab itself for anything
+              official, like exam eligibility.
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary>Can I install it on my phone?</summary>
+            <p>
+              Yes. ETLaban is a web app you can add to your home screen on Android or iPhone. It opens like a normal app
+              and still shows your last synced data when you are offline.
+            </p>
+          </details>
+        </div>
       </section>
 
       <section class="closing" aria-labelledby="privacy-title">

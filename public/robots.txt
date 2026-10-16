@@ -1,0 +1,7 @@
+# Search engines and AI assistants are welcome on the public pages.
+# /app is left crawlable so its noindex tag is seen; /api only returns private JSON.
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://etlaban.vercel.app/sitemap.xml

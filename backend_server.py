@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
 
 PAGES = {"/": "index.html", "/login": "login.html", "/app": "app.html"}
-STATIC_TYPES = {".html", ".css", ".js", ".svg", ".png", ".webmanifest"}
+STATIC_TYPES = {".html", ".css", ".js", ".svg", ".png", ".webmanifest", ".txt", ".xml"}
 
 
 def load_vercel_headers():

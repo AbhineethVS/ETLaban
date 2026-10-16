@@ -43,6 +43,7 @@ Avoid AI-slop defaults:
 ## Content density
 
 - Landing stays short: what it is, what you get, one login action.
+- The landing FAQ is mirrored in the `FAQPage` JSON-LD in `index.html`'s `<head>`. Change both together (Google ignores FAQ markup that doesn't match the page). `llms.txt` summarises the app for AI assistants; keep it true when features change.
 - Dashboard should answer "am I in trouble?" in one screen, then get out of the way.
 - Attendance calendar must be usable on a phone: compact cells or a list/week switch, not tiny unreadable day cards.
 - Lists (materials, results) should scan: title, subject, one action. No nested card-in-card.

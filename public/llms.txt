@@ -1,0 +1,36 @@
+# ETLaban
+
+> ETLaban is a free, open-source, unofficial app for ETLab, the student portal used by College of Engineering Trivandrum (CET), Kerala, India. Students log in with their normal ETLab username and password and see their attendance, results and study materials in a fast, phone-friendly app. Tagline: "same data, less suffering."
+
+ETLaban is an independent student project. It is not made by, endorsed by or connected to ETLab, Etuwa Concepts, College of Engineering Trivandrum or KTU. It only reads data from ETLab (cet.etlab.in) and never changes anything there. For official decisions such as exam eligibility, students should check ETLab itself.
+
+## What it does
+
+- Attendance for every subject, with an overall percentage.
+- How many more classes you can miss and stay above your target, or how many you need to attend to get back above it. The target can be 75%, 80% or 85%.
+- An attendance calendar for this month and last month, one dot per period, showing which classes were missed on each day.
+- Results for every semester: SGPA per semester, CGPA, grades, sessional marks and assignments.
+- All ETLab study materials in one searchable list, plus links the student saves (Drive folders, playlists, question banks).
+- Installable on Android and iPhone as a web app (PWA). Works offline with the last synced data. Light and dark mode.
+
+## Privacy and safety
+
+- The password is never stored on the ETLaban server. It is sent to ETLab once to log in.
+- With "Keep me signed in", the password is kept encrypted inside an HttpOnly cookie in the student's own browser, so the app can log back in when ETLab ends the session. Logging out deletes it.
+- The server keeps no student data. Each sync fetches pages from ETLab, turns them into data and forgets them. The app keeps a copy on the student's device.
+- Analytics are anonymous page-view counts only (Vercel Web Analytics, no cookies).
+- The source code is public under the MIT licence.
+
+## How to use it
+
+1. Open https://etlaban.vercel.app on a phone.
+2. Log in with your ETLab username and password.
+3. Wait a few seconds for the first sync.
+4. Optionally add it to the home screen.
+
+## Links
+
+- [ETLaban app](https://etlaban.vercel.app/): the live app
+- [Source code on GitHub](https://github.com/AbhineethVS/ETLaban): MIT-licensed
+- [How it works](https://github.com/AbhineethVS/ETLaban/blob/main/docs/how-it-works.md): login flow, encryption and what is stored where
+- [Security policy](https://github.com/AbhineethVS/ETLaban/blob/main/SECURITY.md)
