@@ -171,14 +171,21 @@ def fetch(client: Client, query=None):
     semesters, cgpa = [], None
     for number in sorted(pages):
         page = parse_page(pages[number])
+        # A 200 that isn't a real results page (ETLab under load, a block page)
+        # parses to nothing. Leave that semester out instead of reporting it as
+        # empty, so the app keeps its saved copy and tries again on the next sync.
+        if number != current and not page["universityResult"]:
+            continue
         cgpa = cgpa or page.pop("cgpa")
         page.pop("cgpa", None)
         semesters.append({"number": number, "current": number == current, **page})
 
     now = next(s for s in semesters if s["current"])
+    missing = [] if earlier_skipped else [n for n in range(1, current) if n not in {s["number"] for s in semesters}]
     return {
         "currentSemester": current,
         "earlierSkipped": earlier_skipped,
+        "missingSemesters": missing,
         "semesterCount": max(SEMESTER_COUNT, current),
         "cgpa": cgpa,
         "semesters": semesters,

@@ -647,7 +647,8 @@ function sourceParams(key, cached, { full = false } = {}) {
   if (key === "results" && !full) {
     const results = cached.results;
     const recent = Date.now() - (cached.resultsFullAt || 0) < FULL_RESULTS_EVERY_MS;
-    const complete = results?.currentSemester && results.semesters?.length >= results.currentSemester;
+    const earlier = (results?.semesters || []).filter((s) => s.number < results.currentSemester && s.universityResult?.length);
+    const complete = results?.currentSemester && earlier.length >= results.currentSemester - 1;
     if (recent && complete) return { cachedSemester: results.currentSemester };
   }
   return {};
@@ -660,9 +661,13 @@ function mergeSource(key, value, cached) {
     const kept = (cached.attendance?.dayDetails || []).filter((day) => reused.has(day.date));
     return { ...value, dayDetails: [...kept, ...(value.dayDetails || [])] };
   }
-  if (key === "results" && value.earlierSkipped) {
-    const earlier = (cached.results?.semesters || []).filter((s) => s.number < value.currentSemester);
-    return { ...value, semesters: [...earlier, ...value.semesters], cgpa: cached.results?.cgpa ?? value.cgpa };
+  if (key === "results") {
+    // Earlier semesters the server skipped, or couldn't load this time, come from this device's copy.
+    const have = new Set(value.semesters.map((s) => s.number));
+    const earlier = (cached.results?.semesters || []).filter((s) => s.number < value.currentSemester && !have.has(s.number));
+    if (!earlier.length && !value.earlierSkipped) return value;
+    const semesters = [...earlier, ...value.semesters].sort((a, b) => a.number - b.number);
+    return { ...value, semesters, cgpa: value.earlierSkipped ? (cached.results?.cgpa ?? value.cgpa) : (value.cgpa ?? cached.results?.cgpa) };
   }
   return value;
 }
@@ -738,7 +743,7 @@ async function syncSources({ fromLogin = false, quiet = false, full = false } = 
     else failed.push(keys[index]);
   });
   const results = cached.results;
-  if (settled[keys.indexOf("results")].status === "fulfilled" && !results.earlierSkipped) {
+  if (settled[keys.indexOf("results")].status === "fulfilled" && !results.earlierSkipped && !results.missingSemesters?.length) {
     if (results.semesters?.length >= results.currentSemester) cached.resultsFullAt = Date.now();
   }
 
