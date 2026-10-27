@@ -132,16 +132,27 @@ def _parse_university(table, sessions):
     return subjects, summary
 
 
+def _is_university_table(table):
+    return "Subject Code" in table["headers"]
+
+
 def parse_page(html: str):
     tables = data_tables(html)
+    # Found by its header, not its position: an assessment table with no rows is
+    # dropped by data_tables and would otherwise shift it out of place.
+    university_table = next((t for t in tables if _is_university_table(t)), None)
+    if university_table is None and len(tables) > len(CATEGORIES):
+        university_table = tables[len(CATEGORIES)]
+    assessment_tables = tables[: tables.index(university_table)] if university_table else tables
+
     assessments = {}
     for index, (key, label) in enumerate(CATEGORIES):
-        table = tables[index] if index < len(tables) else {"headers": [], "rows": []}
+        table = assessment_tables[index] if index < len(assessment_tables) else {"headers": [], "rows": []}
         assessments[key] = {"label": label, "items": _parse_assessments(table)}
 
     university, summary = [], {}
-    if len(tables) > len(CATEGORIES):
-        university, summary = _parse_university(tables[len(CATEGORIES)], _exam_sessions(html))
+    if university_table:
+        university, summary = _parse_university(university_table, _exam_sessions(html))
 
     cgpa = re.search(r"CGPA Upto Current Semester\s*:\s*([\d.]+)", html)
     return {
@@ -168,14 +179,25 @@ def fetch(client: Client, query=None):
     pages = {n: html for n, html in zip(range(1, current), earlier) if html}
     pages[current] = current_html
 
+    # Why each earlier semester is or isn't in `semesters`, so a missing one can
+    # be told apart from ETLab failing, showing another semester, or a layout change.
+    page_status = {} if earlier_skipped else {str(n): "failed" for n in range(1, current)}
+    current_courses = parse_page(current_html)["universityResult"]
     semesters, cgpa = [], None
     for number in sorted(pages):
-        page = parse_page(pages[number])
-        # A 200 that isn't a real results page (ETLab under load, a block page)
-        # parses to nothing. Leave that semester out instead of reporting it as
-        # empty, so the app keeps its saved copy and tries again on the next sync.
-        if number != current and not page["universityResult"]:
-            continue
+        html = pages[number]
+        page = parse_page(html)
+        if number != current:
+            # Leave out pages that aren't this semester's results (ETLab under load,
+            # a block page, or the default page again) so the app keeps its saved copy.
+            if selected_semester(html) == current and page["universityResult"] == current_courses:
+                page_status[str(number)] = f"showed semester {current} instead"
+                continue
+            if not page["universityResult"]:
+                tables = len(data_tables(html))
+                page_status[str(number)] = f"no course table ({tables} tables, {len(html)} bytes)"
+                continue
+            page_status[str(number)] = "ok"
         cgpa = cgpa or page.pop("cgpa")
         page.pop("cgpa", None)
         semesters.append({"number": number, "current": number == current, **page})
@@ -186,6 +208,7 @@ def fetch(client: Client, query=None):
         "currentSemester": current,
         "earlierSkipped": earlier_skipped,
         "missingSemesters": missing,
+        "semesterPages": page_status,
         "semesterCount": max(SEMESTER_COUNT, current),
         "cgpa": cgpa,
         "semesters": semesters,
