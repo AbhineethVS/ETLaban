@@ -53,8 +53,15 @@ def parse_subject_summary(html: str):
 
 def _select(html: str, name: str):
     """Option values of a <select> on the month report, and the selected one."""
-    match = re.search(rf'<select[^>]*name="{name}"[^>]*>(.*?)</select>', html, re.S)
-    option_tags = OPTION_RE.findall(match.group(1)) if match else []
+    body = ""
+    for match in re.finditer(r"<select\b([^>]*)>(.*?)</select>", html, re.I | re.S):
+        attrs = match.group(1)
+        quoted = re.search(rf"\bname\s*=\s*['\"]{re.escape(name)}['\"]", attrs, re.I)
+        unquoted = re.search(rf"\bname\s*=\s*{re.escape(name)}(?:\s|$)", attrs, re.I)
+        if quoted or unquoted:
+            body = match.group(2)
+            break
+    option_tags = OPTION_RE.findall(body)
     options = []
     selected_value = None
     for tag in option_tags:

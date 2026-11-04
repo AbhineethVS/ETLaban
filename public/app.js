@@ -45,18 +45,18 @@ const AUTHOR_URL = "https://github.com/AbhineethVS";
 const MODEL_PAPERS_URL = "https://ktu.edu.in/academics/scheme";
 const UNION_CELLS = [
   {
-    name: "SAC",
-    fullName: "Students Assistance Cell",
-    organisation: "KSU CET",
-    url: "https://sac.ksucet.in/",
-    detail: "Notes, previous questions, syllabus and other study support.",
-  },
-  {
     name: "ASC",
     fullName: "Academic Support Cell",
     organisation: "SFI CET",
     url: "https://asc.sficet.in/",
     detail: "Study materials, question papers, syllabus and academic resources.",
+  },
+  {
+    name: "SAC",
+    fullName: "Students Assistance Cell",
+    organisation: "KSU CET",
+    url: "https://sac.ksucet.in/",
+    detail: "Notes, previous questions, syllabus and other study support.",
   },
 ];
 const GITHUB_MARK = '<svg class="github-mark" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -352,7 +352,11 @@ function monthModel() {
 }
 
 function previousMonthModel() {
-  if (state.cache.previousMonth === undefined) state.cache.previousMonth = buildMonth(state.data.attendancePreviousMonth);
+  if (state.cache.previousMonth === undefined) {
+    const current = monthModel();
+    const expected = current ? new Date(current.year, current.monthIndex - 1, 1) : null;
+    state.cache.previousMonth = buildMonth(state.data.attendancePreviousMonth, expected);
+  }
   return state.cache.previousMonth;
 }
 
@@ -367,16 +371,18 @@ function findDay(date) {
   return [monthModel(), previousMonthModel()].flatMap((model) => model?.days || []).find((d) => d.date === date);
 }
 
-function buildMonth(month) {
+function buildMonth(month, expectedMonth = null) {
   if (!month?.days?.length) return null;
 
   // Early in a month ETLab gives no dated links, so days can arrive without a
-  // date. Place them in the month the other days use, or else this month.
-  const anchor = month.days.map((day) => parseIsoDate(day.date)).find(Boolean) || new Date();
+  // date. Previous-month payloads also sometimes lack reliable dates, so callers
+  // can pin them to the month ETLab's picker was meant to show.
+  const anchor = expectedMonth || month.days.map((day) => parseIsoDate(day.date)).find(Boolean) || new Date();
   const details = new Map((state.data.attendanceDetails || []).map((day) => [day.date, day.periods || []]));
   const days = month.days.map((day) => {
     const dateObj =
-      parseIsoDate(day.date) || new Date(anchor.getFullYear(), anchor.getMonth(), Number(day.day) || 1);
+      (expectedMonth ? null : parseIsoDate(day.date)) ||
+      new Date(anchor.getFullYear(), anchor.getMonth(), Number(day.day) || 1);
     const date = isoDate(dateObj);
     const present = Number(day.attendance?.present) || 0;
     const total = Number(day.attendance?.total) || 0;
