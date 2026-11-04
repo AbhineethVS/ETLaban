@@ -1617,7 +1617,7 @@ function renderMaterials() {
         [
           { value: "etlab", label: "ETLab" },
           { value: "union", label: "Union" },
-          { value: "papers", label: "Papers" },
+          { value: "papers", label: "Model" },
           { value: "saved", label: "Saved" },
         ],
         tab,
