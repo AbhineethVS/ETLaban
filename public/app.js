@@ -1199,7 +1199,7 @@ function attendanceBody() {
 function currentAttendance() {
   const tab = attendanceTab();
   return `
-    <div class="toolbar">
+    <div class="toolbar att-toolbar">
       ${segmented(
         [
           { value: "subjects", label: "Subjects" },
@@ -1208,6 +1208,12 @@ function currentAttendance() {
         tab,
         "att-tab",
         "Attendance view",
+      )}
+      ${segmented(
+        TARGETS.map((t) => ({ value: String(t), label: `${t}%` })),
+        String(target()),
+        "target",
+        "Attendance target",
       )}
     </div>
     <div id="att-body" class="panel">${tab === "calendar" ? renderCalendar() : renderSubjectList()}</div>
@@ -2188,6 +2194,7 @@ const ACTIONS = {
     writeStorage(STORAGE.target, button.dataset.value);
     state.cache = {};
     toast(`Attendance target set to ${button.dataset.value}%`, { icon: "check" });
+    if (state.view === "attendance" || state.view === "home" || state.view === "settings") render();
   },
 
   install: () => promptInstall(),
