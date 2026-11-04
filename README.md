@@ -52,8 +52,9 @@ shop every CET student knows. ETLab, but sweeter.
   Tap a day to see which classes you missed.
 - **Results for every semester.** SGPA per semester as a small chart, your CGPA,
   grades, sessional marks and assignments.
-- **Study materials.** Every file from ETLab in one searchable list, plus your own
-  saved links (Drive folders, playlists, question banks).
+- **Study materials.** Every file from ETLab in one searchable list, quick links
+  to SAC and ASC union cell resources, plus your own saved links (Drive folders,
+  playlists, question banks).
 - **Your target, your rules.** Choose 75%, 80% or 85%. Every number updates.
 - **Stay signed in.** Tick *Keep me signed in* and ETLaban quietly logs you back in
   whenever ETLab ends your session, instead of sending you to the login page every few hours.

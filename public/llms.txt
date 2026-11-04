@@ -10,7 +10,7 @@ ETLaban is an independent student project. It is not made by, endorsed by or con
 - How many more classes you can miss and stay above your target, or how many you need to attend to get back above it. The target can be 75%, 80% or 85%.
 - An attendance calendar for this month and last month, one dot per period, showing which classes were missed on each day.
 - Results for every semester: SGPA per semester, CGPA, grades, sessional marks and assignments.
-- All ETLab study materials in one searchable list, plus links the student saves (Drive folders, playlists, question banks).
+- All ETLab study materials in one searchable list, union cell links for SAC and ASC resources, plus links the student saves (Drive folders, playlists, question banks).
 - Installable on Android and iPhone as a web app (PWA). Works offline with the last synced data. Light and dark mode.
 
 ## Privacy and safety

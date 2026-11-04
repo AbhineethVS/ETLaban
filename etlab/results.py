@@ -16,7 +16,7 @@ CATEGORIES = [
     ("seminars", "Seminars"),
     ("internalMarks", "Internal Marks"),
     ("labEvaluations", "Lab Evaluation"),
-    ("labInternalTests", "Lab Internal Test"),
+    ("labInternalTests", "Internal Marks"),
 ]
 
 # Each assessment table names its columns differently; these give every
