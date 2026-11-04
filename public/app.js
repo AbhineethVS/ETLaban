@@ -1625,7 +1625,7 @@ function renderUnionCells() {
           (cell) => `
             <li class="mat">
               <a class="mat-head" href="${cell.url}" target="_blank" rel="noopener noreferrer">
-                <span class="file-tile" data-kind="union">${cell.name}</span>
+                <span class="file-tile" data-kind="union" data-cell="${cell.name.toLowerCase()}">${cell.name}</span>
                 <span class="mat-text">
                   <span class="mat-title">${cell.fullName}</span>
                   <span class="mat-meta">${cell.organisation} · ${hostOf(cell.url)}</span>
@@ -1938,6 +1938,9 @@ function renderNav() {
   document.querySelectorAll("[data-sync-icon]").forEach((el) => {
     el.innerHTML = icon("sync", 20);
   });
+  document.querySelectorAll("[data-install-icon]").forEach((el) => {
+    el.innerHTML = icon("download", 16);
+  });
 }
 
 function updateNav() {
@@ -1956,6 +1959,9 @@ function updateNav() {
       .slice(0, 2)
       .map((w) => w.charAt(0))
       .join("") || "?";
+  document.querySelectorAll(".topbar-install").forEach((button) => {
+    button.hidden = state.view !== "home" || isStandaloneApp();
+  });
 }
 
 function render({ animate = false } = {}) {

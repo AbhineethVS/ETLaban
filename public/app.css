@@ -78,6 +78,21 @@
   backdrop-filter: saturate(1.4) blur(16px);
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-install {
+  min-height: 38px;
+  padding-inline: 13px;
+}
+
+.topbar-install[hidden] {
+  display: none;
+}
+
 @supports (animation-timeline: scroll()) {
   .topbar {
     animation: topbar-shade linear both;
@@ -1795,6 +1810,16 @@ button.subject-head {
   color: var(--brand);
   font-size: 0.58rem;
   letter-spacing: 0.08em;
+}
+
+.file-tile[data-cell="sac"] {
+  background: color-mix(in srgb, #2563eb 14%, var(--panel));
+  color: #2563eb;
+}
+
+.file-tile[data-cell="asc"] {
+  background: color-mix(in srgb, #dc2626 14%, var(--panel));
+  color: #dc2626;
 }
 
 .union-cells-card {

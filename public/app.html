@@ -56,9 +56,15 @@
             <img src="icon.svg" alt="" width="28" height="28" />
             <span class="wordmark">ET<em>Laban</em></span>
           </a>
-          <button class="icon-btn sync-btn" type="button" data-action="sync" aria-label="Sync with ETLab">
-            <span data-sync-icon></span>
-          </button>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost btn-sm topbar-install" type="button" data-action="install" hidden>
+              <span data-install-icon></span>
+              Install
+            </button>
+            <button class="icon-btn sync-btn" type="button" data-action="sync" aria-label="Sync with ETLab">
+              <span data-sync-icon></span>
+            </button>
+          </div>
         </header>
 
         <main id="app" class="view" aria-live="polite"></main>
