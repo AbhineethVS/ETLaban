@@ -85,10 +85,16 @@ def _previous_month_form(html: str):
     """The month picker's fields for the month before the one shown, if the semester has one."""
     months, month = _select(html, "month")
     year, semester = _select(html, "year")[1], _select(html, "semester")[1]
-    if not (month and year and semester) or month not in months or months.index(month) == 0:
+    if not (month and year and semester):
         return None
-    previous = months[months.index(month) - 1]
-    previous_year = int(year) if int(previous) < int(month) else int(year) - 1
+
+    current_month = int(month)
+    previous_month = 12 if current_month == 1 else current_month - 1
+    previous = next((value for value in months if int(value) == previous_month), None)
+    if previous is None:
+        return None
+
+    previous_year = int(year) - 1 if current_month == 1 else int(year)
     return {"semester": semester, "month": previous, "year": str(previous_year)}
 
 
