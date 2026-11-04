@@ -7,7 +7,7 @@ from .tables import data_tables, extract_links, parse_ratio, parse_tables
 
 ATTENDANCE_URL = "/ktuacademics/student/attendance"
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
-OPTION_RE = re.compile(r'<option value="(\d+)"( selected="selected")?')
+OPTION_RE = re.compile(r"<option\b[^>]*>", re.I)
 CSRF_RE = re.compile(r'"YII_CSRF_TOKEN"\s*:\s*"([^"]+)"')
 IST = timezone(timedelta(hours=5, minutes=30))
 # Each day is a separate ETLab request; cap detail fetches so /api/attendance
@@ -54,8 +54,18 @@ def parse_subject_summary(html: str):
 def _select(html: str, name: str):
     """Option values of a <select> on the month report, and the selected one."""
     match = re.search(rf'<select[^>]*name="{name}"[^>]*>(.*?)</select>', html, re.S)
-    options = OPTION_RE.findall(match.group(1)) if match else []
-    return [value for value, _ in options], next((value for value, selected in options if selected), None)
+    option_tags = OPTION_RE.findall(match.group(1)) if match else []
+    options = []
+    selected_value = None
+    for tag in option_tags:
+        value = re.search(r'\bvalue=["\']?(\d+)', tag, re.I)
+        if not value:
+            continue
+        option = value.group(1)
+        options.append(option)
+        if re.search(r"\bselected\b", tag, re.I):
+            selected_value = option
+    return options, selected_value
 
 
 def _shown_month(html: str):
@@ -68,7 +78,7 @@ def _previous_month_form(html: str):
     """The month picker's fields for the month before the one shown, if the semester has one."""
     months, month = _select(html, "month")
     year, semester = _select(html, "year")[1], _select(html, "semester")[1]
-    if not (month and year and semester) or months.index(month) == 0:
+    if not (month and year and semester) or month not in months or months.index(month) == 0:
         return None
     previous = months[months.index(month) - 1]
     previous_year = int(year) if int(previous) < int(month) else int(year) - 1

@@ -85,8 +85,11 @@
 }
 
 .topbar-install {
+  min-width: 96px;
   min-height: 38px;
-  padding-inline: 13px;
+  padding-inline: 16px;
+  border-radius: 999px;
+  background: var(--panel);
 }
 
 .topbar-install[hidden] {
@@ -1109,11 +1112,20 @@ button.subject-head {
 .cal-nav {
   display: flex;
   align-self: center;
-  margin-right: -6px;
+  gap: 6px;
+  margin-right: -2px;
+}
+
+.cal-nav .icon-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--text);
 }
 
 .cal-nav .icon-btn:disabled {
-  opacity: 0.3;
+  opacity: 0.38;
   cursor: default;
 }
 

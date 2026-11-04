@@ -1281,16 +1281,17 @@ function calendarHead(model) {
   const meta = model.summaryText
     ? `<p class="cal-meta">${model.summaryText} · <strong>${escapeHtml(model.monthPercent)}</strong></p>`
     : "";
+  const current = monthModel();
   const previous = previousMonthModel();
-  if (!previous || !monthModel()) return `<div class="cal-head">${title}${meta}</div>`;
+  if (!previous && !current) return `<div class="cal-head">${title}${meta}</div>`;
 
   const onPrevious = model === previous;
   return `
     <div class="cal-head">
       <div>${title}${meta}</div>
       <div class="cal-nav">
-        <button class="icon-btn" type="button" data-action="cal-month" data-value="previous" aria-label="Previous month" ${onPrevious ? "disabled" : ""}>${icon("left", 20)}</button>
-        <button class="icon-btn" type="button" data-action="cal-month" data-value="current" aria-label="Next month" ${onPrevious ? "" : "disabled"}>${icon("right", 20)}</button>
+        <button class="icon-btn" type="button" data-action="cal-month" data-value="previous" aria-label="Previous month" ${onPrevious || !previous ? "disabled" : ""}>${icon("left", 20)}</button>
+        <button class="icon-btn" type="button" data-action="cal-month" data-value="current" aria-label="Current month" ${!onPrevious || !current ? "disabled" : ""}>${icon("right", 20)}</button>
       </div>
     </div>
   `;
@@ -2083,6 +2084,7 @@ const ACTIONS = {
 
   "cal-month": (button) => {
     const model = button.dataset.value === "previous" ? previousMonthModel() : monthModel();
+    if (!model) return;
     state.selectedDay = defaultSelectedDay(model);
     setHash(`#attendance/calendar/${state.selectedDay}`);
     swapPanel("#att-body", renderCalendar());
