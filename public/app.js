@@ -1612,12 +1612,12 @@ function renderMaterials() {
 
   return `
     ${pageHead("Materials", kicker)}
-    <div class="toolbar">
+    <div class="toolbar mat-toolbar">
       ${segmented(
         [
           { value: "etlab", label: "ETLab" },
-          { value: "union", label: "Union Cells" },
-          { value: "papers", label: "Model Papers" },
+          { value: "union", label: "Union" },
+          { value: "papers", label: "Papers" },
           { value: "saved", label: "Saved" },
         ],
         tab,
