@@ -45,22 +45,22 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0f0f0e;
-  --panel: #171715;
-  --panel-soft: #1f1f1c;
-  --text: #edebe6;
-  --muted: #9a968d;
-  --faint: #67635c;
-  --line: rgba(237, 235, 230, 0.08);
-  --line-strong: rgba(237, 235, 230, 0.15);
-  --brand: #ef7f4e;
-  --brand-soft: rgba(239, 127, 78, 0.13);
-  --ink: #edebe6;
-  --on-ink: #0f0f0e;
-  --danger: #f07a6e;
-  --danger-soft: rgba(240, 122, 110, 0.1);
-  --success: #7ccf98;
-  --dot: rgba(237, 235, 230, 0.09);
+  --bg: #0d0f12;
+  --panel: #15181d;
+  --panel-soft: #1c2026;
+  --text: #f2f3f5;
+  --muted: #b1b7c0;
+  --faint: #7f8792;
+  --line: rgba(242, 243, 245, 0.09);
+  --line-strong: rgba(242, 243, 245, 0.16);
+  --brand: #8bc7ff;
+  --brand-soft: rgba(139, 199, 255, 0.13);
+  --ink: #f2f3f5;
+  --on-ink: #0d0f12;
+  --danger: #ef7782;
+  --danger-soft: rgba(239, 119, 130, 0.11);
+  --success: #69c79d;
+  --dot: rgba(242, 243, 245, 0.1);
   --shadow-card:
     0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.3),
     0 24px 48px -20px rgba(0, 0, 0, 0.6);

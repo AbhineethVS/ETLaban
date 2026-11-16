@@ -25,5 +25,5 @@
     // Never leave a white screen if /api/me hangs or a module fails before revealPage().
     setTimeout(() => root.classList.remove("is-checking"), 5000);
   }
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0f0f0e" : "#f7f5f0");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0d0f12" : "#f7f5f0");
 })();

@@ -2,7 +2,7 @@
 // The initial theme is set by the inline script in each page's <head> so there is no flash.
 
 const THEME_KEY = "better-etlab-theme";
-const THEME_COLORS = { light: "#f7f5f0", dark: "#0f0f0e" };
+const THEME_COLORS = { light: "#f7f5f0", dark: "#0d0f12" };
 
 const root = document.documentElement;
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
